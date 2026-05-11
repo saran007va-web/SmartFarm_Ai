@@ -1,0 +1,217 @@
+import axios from 'axios'
+
+const DEFAULT_API_URL = '/api'
+
+const normalizeApiBaseUrl = (value) => {
+  if (!value) return DEFAULT_API_URL
+
+  const trimmed = value.trim().replace(/\/+$/, '')
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`
+  }
+
+  return trimmed
+}
+
+const api = axios.create({
+  baseURL: normalizeApiBaseUrl(import.meta.env.VITE_API_URL),
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const detail = error?.response?.data?.detail
+    if (detail) {
+      error.message = detail
+    } else if (error?.code === 'ECONNABORTED') {
+      error.message = 'Request timed out. Please try again.'
+    } else if (!error?.response) {
+      error.message = 'Unable to reach the backend. Check the API URL and network connection.'
+    }
+
+    return Promise.reject(error)
+  }
+)
+
+api.interceptors.request.use((config) => {
+  if (import.meta.env.DEV) {
+    const requestUrl = `${config.baseURL || ''}${config.url || ''}`
+    console.log('[API request]', (config.method || 'get').toUpperCase(), requestUrl)
+  }
+  return config
+})
+
+export const getApiBaseUrl = () => api.defaults.baseURL
+
+export const sendChat = (message, sessionId, history, language, deviceId) =>
+  api.post('/chat', { message, session_id: sessionId, history, language, device_id: deviceId })
+
+export const getChatHistory = (sessionId) =>
+  api.get(`/chat/history/${sessionId}`)
+
+export const uploadDocument = (formData) =>
+  api.post('/rag/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
+export const queryDocuments = (question) =>
+  api.post('/rag/query', { question })
+
+export const getRagStats = () =>
+  api.get('/rag/stats')
+
+export const getDocuments = () =>
+  api.get('/rag/documents')
+
+export const downloadDocument = (docId) =>
+  api.get(`/rag/documents/${docId}/download`, { responseType: 'blob' })
+
+export const getDocumentContent = (docId) =>
+  api.get(`/rag/documents/${docId}/content`)
+
+export const deleteDocument = (docId) =>
+  api.delete(`/rag/documents/${docId}`)
+
+// Crop Planning
+export const getCropPlans = (farmId, cropName, dateFrom, dateTo) => {
+  const params = new URLSearchParams()
+  if (farmId) params.append('farm_id', farmId)
+  if (cropName) params.append('crop_name', cropName)
+  if (dateFrom) params.append('date_from', dateFrom.toISOString())
+  if (dateTo) params.append('date_to', dateTo.toISOString())
+  return api.get(`/planning/crop-plans?${params}`)
+}
+
+export const createCropPlan = (data, farmId) => {
+  let url = `/planning/crop-plans`
+  if (farmId) url += `?farm_id=${farmId}`
+  return api.post(url, data)
+}
+
+export const getCropPlan = (planId) =>
+  api.get(`/planning/crop-plans/${planId}`)
+
+export const updateCropPlan = (planId, data) =>
+  api.put(`/planning/crop-plans/${planId}`, data)
+
+export const deleteCropPlan = (planId) =>
+  api.delete(`/planning/crop-plans/${planId}`)
+
+export const createMaintenanceTask = (planId, data) =>
+  api.post(`/planning/crop-plans/${planId}/tasks`, data)
+
+export const getMaintenanceTasks = (planId) =>
+  api.get(`/planning/crop-plans/${planId}/tasks`)
+
+export const getTasksByDateRange = (dateFrom, dateTo) => {
+  const params = new URLSearchParams()
+  params.append('date_from', dateFrom.toISOString())
+  params.append('date_to', dateTo.toISOString())
+  return api.get(`/planning/tasks/by-date?${params}`)
+}
+
+export const getTodaysTasks = () =>
+  api.get('/planning/tasks/today')
+
+export const updateMaintenanceTask = (taskId, data) =>
+  api.put(`/planning/tasks/${taskId}`, data)
+
+export const deleteMaintenanceTask = (taskId) =>
+  api.delete(`/planning/tasks/${taskId}`)
+
+export const predictCrop = (data) =>
+  api.post('/predict/crop', data)
+
+export const predictYield = (data) =>
+  api.post('/predict/yield', data)
+
+export const getCropsList = () =>
+  api.get('/predict/crops/list')
+
+export const getStats = () =>
+  api.get('/stats')
+
+export const getStatsHistory = () => api.get('/stats/history')
+
+export const getStatsBreakdown = () => api.get('/stats/breakdown')
+
+export const getWeeklyYields = () => api.get('/stats/weekly-yields')
+
+export const getSettings = () => api.get('/settings')
+
+export const resetRagIndex = () => api.post('/settings/reset-index')
+
+export const clearChatHistory = () => api.post('/settings/clear-history')
+
+// Farm Profile
+export const getFarmProfiles = () => api.get('/farm/profile')
+export const createFarmProfile = (data) => api.post('/farm/profile', data)
+export const updateFarmProfile = (id, data) => api.put(`/farm/profile/${id}`, data)
+export const deleteFarmProfile = (id) => api.delete(`/farm/profile/${id}`)
+
+// Chat Sessions
+export const getSessions = () => api.get('/chat/sessions')
+export const createSession = (name) => api.post('/chat/sessions', { name })
+export const deleteSession = (sessionId) => api.delete(`/chat/sessions/${sessionId}`)
+export const renameSession = (sessionId, name) => api.patch(`/chat/sessions/${sessionId}`, { name })
+export const exportChat = (sessionId, format) => api.get(`/chat/export/${sessionId}?format=${format}`, { responseType: 'blob' })
+
+// Market Prices
+export const getMarketPrices = () => api.get('/market/prices')
+export const getMarketPricesCrop = (crop) => api.get(`/market/prices/${crop}`)
+
+// Weather
+export const getCurrentWeather = (location = 'coimbatore') => api.get(`/weather/current?location=${location}`)
+export const getWeatherForecast = (location = 'coimbatore', days = 7) => api.get(`/weather/forecast?location=${location}&days=${days}`)
+export const getWeatherLocations = () => api.get('/weather/locations')
+export const setFarmLocation = (lat, lon, name = 'My Farm') => api.post(`/weather/farm-location?lat=${lat}&lon=${lon}&name=${name}`)
+
+// Irrigation
+export const getIrrigationAdvice = (data) => api.post('/irrigation/advice', data)
+export const getIrrigationLogs = (params) => api.get('/irrigation/logs', { params })
+
+// Economics
+export const getProfitMargin = (data) => api.post('/economics/margin', data)
+
+// Calendar
+export const getCalendar = (location) => api.get('/calendar', { params: location ? { location } : {} })
+export const getCalendarCropsList = () => api.get('/calendar/crops/list')
+
+// Yield Records
+export const getYieldRecords = (farmId) => api.get('/records', { params: farmId ? { farm_id: farmId } : {} })
+export const createYieldRecord = (data) => api.post('/records', data)
+export const updateYieldRecord = (id, data) => api.put(`/records/${id}`, data)
+export const deleteYieldRecord = (id) => api.delete(`/records/${id}`)
+
+// Sensors
+export const getSensorReadings = (params) => api.get('/sensors/readings', { params })
+export const getWebhookUrl = () => api.get('/sensors/webhook-url')
+export const sendSensorData = (data) => api.post('/sensors/data', data)
+
+// Translation
+export const translateText = (data) => api.post('/translate', {
+  text: data?.text,
+  source_language: data?.source_language ?? data?.source_lang,
+  target_language: data?.target_language ?? data?.target_lang,
+})
+export const detectLanguage = (data) => api.post('/detect-language', {
+  text: data?.text,
+})
+export const getSupportedLanguages = () => api.get('/languages')
+
+// Adaptive Learning
+export const submitFeedback = (data) => api.post('/feedback', data)
+export const submitCorrection = (data) => api.post('/correction', data)
+export const updateUserPreferences = (data) => api.post('/profile/preferences', data)
+export const getUserProfile = (deviceId) => api.get(`/profile/${deviceId}`)
+export const getLearningStats = (deviceId) => api.get(`/profile/${deviceId}/stats`)
+export const getPersonalizedContext = (deviceId) => api.get(`/profile/${deviceId}/context`)
+export const addLearnedContext = (deviceId, key, value) => api.post(`/profile/${deviceId}/context?key=${key}&value=${value}`)
+export const recordCropOutcome = (data) => api.post('/crop-outcome', data)
+export const getCropPatterns = (deviceId) => api.get(`/profile/${deviceId}/crop-patterns`)
+export const getChatContext = (sessionId, deviceId) => api.get(`/chat/context/${sessionId}?device_id=${deviceId}`)
+
+export default api

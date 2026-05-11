@@ -1,0 +1,139 @@
+import Redis from 'ioredis'
+import config from '../config'
+
+class RedisService {
+  private client: Redis
+  private subscriber: Redis
+
+  constructor() {
+    const redisOptions = {
+      host: config.redis.host,
+      port: config.redis.port,
+      password: config.redis.password,
+      db: config.redis.db,
+      retryStrategy: (times: number) => {
+        const delay = Math.min(times * 50, 2000)
+        return delay
+      },
+      maxRetriesPerRequest: 3,
+    }
+
+    this.client = new Redis(redisOptions)
+    this.subscriber = new Redis(redisOptions)
+
+    this.client.on('error', (err) => {
+      console.error('Redis Client Error:', err)
+    })
+
+    this.client.on('connect', () => {
+      console.log('Redis connected successfully')
+    })
+  }
+
+  // Generic cache operations
+  async get(key: string): Promise<string | null> {
+    return this.client.get(key)
+  }
+
+  async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    if (ttlSeconds) {
+      await this.client.setex(key, ttlSeconds, value)
+    } else {
+      await this.client.set(key, value)
+    }
+  }
+
+  async del(key: string): Promise<void> {
+    await this.client.del(key)
+  }
+
+  async delPattern(pattern: string): Promise<void> {
+    const keys = await this.client.keys(pattern)
+    if (keys.length > 0) {
+      await this.client.del(...keys)
+    }
+  }
+
+  // JSON cache operations
+  async getJSON<T>(key: string): Promise<T | null> {
+    const value = await this.get(key)
+    return value ? JSON.parse(value) : null
+  }
+
+  async setJSON<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    await this.set(key, JSON.stringify(value), ttlSeconds)
+  }
+
+  // Weather cache (1 hour TTL)
+  async cacheWeather(location: string, data: unknown): Promise<void> {
+    await this.setJSON(`weather:${location}`, data, 3600)
+  }
+
+  async getCachedWeather(location: string): Promise<unknown | null> {
+    return this.getJSON(`weather:${location}`)
+  }
+
+  // Market price cache (15 min TTL)
+  async cacheMarketPrices(data: unknown): Promise<void> {
+    await this.setJSON('market:prices', data, 900)
+  }
+
+  async getCachedMarketPrices(): Promise<unknown | null> {
+    return this.getJSON('market:prices')
+  }
+
+  // Session cache
+  async cacheSession(sessionId: string, data: unknown, ttlSeconds: number = 86400): Promise<void> {
+    await this.setJSON(`session:${sessionId}`, data, ttlSeconds)
+  }
+
+  async getCachedSession(sessionId: string): Promise<unknown | null> {
+    return this.getJSON(`session:${sessionId}`)
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.del(`session:${sessionId}`)
+  }
+
+  // Rate limiting
+  async checkRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+    const current = await this.client.incr(key)
+    if (current === 1) {
+      await this.client.expire(key, windowSeconds)
+    }
+    return current <= limit
+  }
+
+  // Pub/Sub for realtime
+  async publish(channel: string, message: unknown): Promise<void> {
+    await this.client.publish(channel, JSON.stringify(message))
+  }
+
+  subscribe(channel: string, callback: (message: string) => void): void {
+    this.subscriber.subscribe(channel)
+    this.subscriber.on('message', (ch, message) => {
+      if (ch === channel) {
+        callback(message)
+      }
+    })
+  }
+
+  // Health check
+  async isHealthy(): Promise<boolean> {
+    try {
+      const result = await this.client.ping()
+      return result === 'PONG'
+    } catch {
+      return false
+    }
+  }
+
+  // Close connections
+  async disconnect(): Promise<void> {
+    await this.client.quit()
+    await this.subscriber.quit()
+  }
+}
+
+export const redisService = new RedisService()
+export default redisService
