@@ -32,6 +32,7 @@ import calendarRoutes from './modules/calendar/calendar.controller'
 import statsRoutes from './modules/stats/stats.controller'
 import irrigationRoutes from './modules/irrigation/irrigation.controller'
 import economicsRoutes from './modules/economics/economics.controller'
+import farmRoutes from './modules/farm/farm.controller'
 
 // Initialize Express
 const app = express()
@@ -110,6 +111,7 @@ app.use('/api/calendar', calendarRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/irrigation', irrigationRoutes)
 app.use('/api/economics', economicsRoutes)
+app.use('/api/farm', farmRoutes)
 app.use('/api/crop-outcome', profileRoutes)
 
 // API documentation endpoint

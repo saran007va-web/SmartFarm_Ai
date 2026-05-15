@@ -6,6 +6,7 @@ import Chat from './pages/Chat'
 import Dashboard from './pages/Dashboard'
 import Economics from './pages/Economics'
 import Farm from './pages/Farm'
+import Farm3D from './pages/Farm3D'
 import Irrigation from './pages/Irrigation'
 import Landing from './pages/Landing'
 import Market from './pages/Market'
@@ -52,6 +53,7 @@ function AnimatedRoutes() {
         <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
         <Route path="/weather" element={<AppLayout><Weather /></AppLayout>} />
         <Route path="/farm" element={<AppLayout><Farm /></AppLayout>} />
+        <Route path="/farm-3d" element={<Farm3D />} />
         <Route path="/market" element={<AppLayout><Market /></AppLayout>} />
         <Route path="/calendar" element={<AppLayout><Calendar /></AppLayout>} />
         <Route path="/irrigation" element={<AppLayout><Irrigation /></AppLayout>} />

@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, MessageSquare, Sprout, BarChart3,
   Settings, MapPin, TrendingUp, Calendar, Droplets,
-  DollarSign, FolderOpen, Radio, ChevronRight,
+  DollarSign, FolderOpen, Radio, ChevronRight, Box,
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -31,6 +31,7 @@ const NAV_SECTIONS = [
     label: 'Account',
     items: [
       { to: '/farm', label: 'My Farm', icon: MapPin },
+      { to: '/farm-3d', label: '3D Farm View', icon: Box },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },

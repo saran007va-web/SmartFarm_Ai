@@ -9,31 +9,55 @@ class RedisService {
     if (!config.redis.host) {
       this.client = null
       this.subscriber = null
+      console.log('Redis not configured, running without cache')
       return
     }
 
-    const redisOptions = {
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password,
-      db: config.redis.db,
-      retryStrategy: (times: number) => {
-        const delay = Math.min(times * 50, 2000)
-        return delay
-      },
-      maxRetriesPerRequest: 3,
+    try {
+      const redisOptions = {
+        host: config.redis.host,
+        port: config.redis.port,
+        password: config.redis.password,
+        db: config.redis.db,
+        retryStrategy: (times: number) => {
+          if (times > 3) return null // Stop retrying after 3 attempts
+          const delay = Math.min(times * 50, 2000)
+          return delay
+        },
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: false,
+        lazyConnect: true,
+      }
+
+      this.client = new Redis(redisOptions)
+      this.subscriber = new Redis(redisOptions)
+
+      this.client.on('error', (err) => {
+        // Silently handle connection errors when Redis not available
+        const nodeErr = err as NodeJS.ErrnoException
+        if (nodeErr.code === 'ECONNREFUSED') {
+          console.warn('Redis not available, continuing without cache')
+          this.client = null
+          this.subscriber = null
+        } else {
+          console.error('Redis Client Error:', err)
+        }
+      })
+
+      this.client.on('connect', () => {
+        console.log('Redis connected successfully')
+      })
+
+      // Try to connect once
+      this.client.connect().catch(() => {
+        this.client = null
+        this.subscriber = null
+      })
+    } catch (err) {
+      console.warn('Failed to initialize Redis, running without cache')
+      this.client = null
+      this.subscriber = null
     }
-
-    this.client = new Redis(redisOptions)
-    this.subscriber = new Redis(redisOptions)
-
-    this.client.on('error', (err) => {
-      console.error('Redis Client Error:', err)
-    })
-
-    this.client.on('connect', () => {
-      console.log('Redis connected successfully')
-    })
   }
 
   // Generic cache operations

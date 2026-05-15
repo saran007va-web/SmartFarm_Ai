@@ -142,8 +142,8 @@ router.get('/logs', async (req: Request, res: Response) => {
     }
 
     const logs = await prisma.task.findMany({
-      where,
       where: {
+        ...where,
         taskType: 'WATERING',
       },
       orderBy: { scheduledDate: 'desc' },
