@@ -151,6 +151,7 @@ model Farm {
   marketHistory  MarketPriceHistory[]
   yieldRecords   YieldRecord[]
   uploads       UploadedFile[]
+  aiInsights    AIInsight[]
 
   // Indexes
   @@index([name])
@@ -234,6 +235,7 @@ model Task {
   plan          CropPlan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
   farm          Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
   notifications  Notification[]
+  aiInsights    AIInsight[]
 
   // Indexes
   @@index([farmId])
@@ -424,4 +426,33 @@ model AutosaveDraft {
   @@index([userId])
   @@index([entityType])
   @@map("autosave_drafts")
+}
+
+// Chat Session
+model ChatSession {
+  id        String   @id @default(cuid())
+  name      String
+  deviceId  String   @map("device_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages  ChatMessage[]
+
+  @@index([deviceId])
+  @@map("chat_sessions")
+}
+
+// Chat Message
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  role      String   // 'user' or 'assistant'
+  content   String
+  language  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
 }

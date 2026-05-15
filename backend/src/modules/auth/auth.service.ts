@@ -36,11 +36,11 @@ class AuthService {
     }
 
     const accessToken = jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
+      expiresIn: '7d' as const,
     })
 
     const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, config.jwt.secret, {
-      expiresIn: config.jwt.refreshExpiresIn,
+      expiresIn: '30d' as const,
     })
 
     return { accessToken, refreshToken }

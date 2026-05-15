@@ -5,7 +5,7 @@ const features = [
   {
     icon: MessageSquare,
     title: 'AI Chat',
-    desc: 'Ask any farming question and get expert answers instantly.',
+    desc: 'Ask any farming question and get expert answers instantly powered by Groq.',
   },
   {
     icon: Sprout,
@@ -20,7 +20,7 @@ const features = [
   {
     icon: FileSearch,
     title: 'Document Q&A',
-    desc: 'Upload farming guides and get instant answers from your documents.',
+    desc: 'Upload farming guides and query them with AI-powered grounded answers.',
   },
 ]
 

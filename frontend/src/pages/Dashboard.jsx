@@ -25,9 +25,9 @@ const QUICK_ACTIONS = [
 ]
 
 const FEATURES = [
-  { icon: Zap, label: 'Real-time AI', desc: 'Smart crop recommendations powered by AI' },
-  { icon: Shield, label: 'Local Processing', desc: 'Your farm data stays private and secure' },
-  { icon: BookOpen, label: 'Knowledge Base', desc: 'Upload documents for instant answers' },
+  { icon: Zap, label: 'Real-time AI', desc: 'Powered by Groq LLM APIs' },
+  { icon: Shield, label: 'Local Processing', desc: 'All ML models run locally on your machine' },
+  { icon: BookOpen, label: 'RAG Pipeline', desc: 'Upload docs and get grounded answers' },
 ]
 
 const CustomTooltip = ({ active, payload, label }) => {

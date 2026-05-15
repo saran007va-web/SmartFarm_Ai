@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, MessageSquare, Sprout, BarChart3,
   Settings, MapPin, TrendingUp, Calendar, Droplets,
-  DollarSign, FolderOpen, Radio, ChevronRight, Cloud,
+  DollarSign, FolderOpen, Radio, ChevronRight,
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -20,7 +20,6 @@ const NAV_SECTIONS = [
     label: 'Farm Operations',
     items: [
       { to: '/market', label: 'Market Prices', icon: TrendingUp },
-      { to: '/weather', label: 'Weather', icon: Cloud },
       { to: '/calendar', label: 'Crop Calendar', icon: Calendar },
       { to: '/irrigation', label: 'Irrigation', icon: Droplets },
       { to: '/economics', label: 'Profit Margin', icon: DollarSign },
@@ -179,7 +178,7 @@ export default function Sidebar({ isOpen, onClose }) {
         style={{ borderTop: '1px solid var(--color-border)' }}
       >
         <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-          SmartFarm AI v1.0
+          Powered by FastAPI &amp; Groq
         </p>
       </div>
     </aside>

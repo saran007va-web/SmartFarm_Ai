@@ -2,10 +2,16 @@ import Redis from 'ioredis'
 import config from '../config'
 
 class RedisService {
-  private client: Redis
-  private subscriber: Redis
+  private client: Redis | null
+  private subscriber: Redis | null
 
   constructor() {
+    if (!config.redis.host) {
+      this.client = null
+      this.subscriber = null
+      return
+    }
+
     const redisOptions = {
       host: config.redis.host,
       port: config.redis.port,
@@ -32,10 +38,12 @@ class RedisService {
 
   // Generic cache operations
   async get(key: string): Promise<string | null> {
+    if (!this.client) return null
     return this.client.get(key)
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    if (!this.client) return
     if (ttlSeconds) {
       await this.client.setex(key, ttlSeconds, value)
     } else {
@@ -44,10 +52,12 @@ class RedisService {
   }
 
   async del(key: string): Promise<void> {
+    if (!this.client) return
     await this.client.del(key)
   }
 
   async delPattern(pattern: string): Promise<void> {
+    if (!this.client) return
     const keys = await this.client.keys(pattern)
     if (keys.length > 0) {
       await this.client.del(...keys)
@@ -97,6 +107,7 @@ class RedisService {
 
   // Rate limiting
   async checkRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+    if (!this.client) return true
     const current = await this.client.incr(key)
     if (current === 1) {
       await this.client.expire(key, windowSeconds)
@@ -106,10 +117,12 @@ class RedisService {
 
   // Pub/Sub for realtime
   async publish(channel: string, message: unknown): Promise<void> {
+    if (!this.client) return
     await this.client.publish(channel, JSON.stringify(message))
   }
 
   subscribe(channel: string, callback: (message: string) => void): void {
+    if (!this.subscriber) return
     this.subscriber.subscribe(channel)
     this.subscriber.on('message', (ch, message) => {
       if (ch === channel) {
@@ -120,6 +133,7 @@ class RedisService {
 
   // Health check
   async isHealthy(): Promise<boolean> {
+    if (!this.client) return false
     try {
       const result = await this.client.ping()
       return result === 'PONG'
@@ -130,8 +144,12 @@ class RedisService {
 
   // Close connections
   async disconnect(): Promise<void> {
-    await this.client.quit()
-    await this.subscriber.quit()
+    if (this.client) {
+      await this.client.quit()
+    }
+    if (this.subscriber) {
+      await this.subscriber.quit()
+    }
   }
 }
 

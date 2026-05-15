@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
+import jwt from 'jsonwebtoken'
 import authService from './auth.service'
+import config from '../../config'
+
+export const generateToken = (userId: string, email: string): string => {
+  return jwt.sign({ userId, email }, config.jwt.secret, { expiresIn: '7d' })
+}
 
 export interface AuthRequest extends Request {
   user?: {

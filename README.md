@@ -453,3 +453,15 @@ If you intend to use this project in production or distribute it, please add an 
 ---
 
 *Built with FastAPI · Groq · FAISS · scikit-learn*
+cd backend
+# Start Docker services first
+docker-compose up -d db redis
+
+# Generate Prisma client
+npx prisma generate
+
+# Push schema to database
+npx prisma db push
+
+# Start development server
+npm run dev

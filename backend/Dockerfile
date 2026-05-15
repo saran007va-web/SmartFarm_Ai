@@ -2,10 +2,7 @@
 # SMART AI FARMING PLATFORM - BACKEND
 # ========================================
 
-FROM node:20-alpine AS base
-
-# Install dependencies for node-native modules
-RUN apk add --no-cache libc6-compat
+FROM node:20-bookworm AS base
 
 # ========================================
 # DEPENDENCY STAGE
@@ -54,17 +51,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 nodejs -g nodejs
 
 # Copy built files
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
-
-# Generate Prisma client in production
-RUN npx prisma generate
 
 # Change ownership
 RUN chown -R nodejs:nodejs /app

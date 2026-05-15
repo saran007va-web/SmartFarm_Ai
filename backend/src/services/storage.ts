@@ -1,8 +1,8 @@
-import { createClient, SupabaseClient, StorageFile } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import config from '../config'
 import { v4 as uuidv4 } from 'uuid'
-import fs from 'fs'
 import path from 'path'
+import ws from 'ws'
 
 interface UploadResult {
   success: boolean
@@ -23,19 +23,33 @@ interface SignedUrlResult {
 }
 
 class StorageService {
-  private client: SupabaseClient
+  private client: SupabaseClient | null
+  private readonly enabled: boolean
 
   constructor() {
-    this.client = createClient(config.supabase.url, config.supabase.serviceKey)
+    this.enabled = Boolean(config.supabase.url && config.supabase.serviceKey)
+    this.client = this.enabled
+      ? createClient(config.supabase.url, config.supabase.serviceKey, {
+          realtime: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            transport: ws as any,
+          },
+        })
+      : null
+  }
+
+  private getClient(): SupabaseClient | null {
+    return this.client
   }
 
   // Get bucket contents
-  async listFiles(bucket: string, folderPath: string): Promise<StorageFile[]> {
-    const { data, error } = await this.client.storage
+  async listFiles(bucket: string, folderPath: string): Promise<unknown[]> {
+    if (!this.getClient()) return []
+
+    const { data } = await this.getClient()!.storage
       .from(bucket)
       .list(folderPath, { limit: 100, offset: 0 })
 
-    if (error) throw error
     return data || []
   }
 
@@ -43,7 +57,7 @@ class StorageService {
   async uploadFile(
     bucketName: string,
     filePath: string,
-    file: Buffer | fs.ReadStream,
+    file: Buffer,
     options: {
       folder?: string
       contentType?: string
@@ -51,29 +65,31 @@ class StorageService {
     } = {}
   ): Promise<UploadResult> {
     try {
+      if (!this.getClient()) {
+        return { success: false, error: 'Supabase storage is not configured' }
+      }
+
       const { folder = '', contentType = 'application/octet-stream', cacheControl = 3600 } = options
 
-      // Generate unique filename
       const ext = path.extname(filePath)
       const fileName = path.basename(filePath, ext)
       const uniqueName = `${fileName}-${uuidv4()}${ext}`
       const fullPath = folder ? `${folder}/${uniqueName}` : uniqueName
 
-      // Upload to Supabase
-      const { data, error } = await this.client.storage
+      const { data, error } = await this.getClient()!.storage
         .from(bucketName)
         .upload(fullPath, file, {
-          cacheControl,
+          cacheControl: String(cacheControl),
           contentType,
-          upsert: false,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          upsert: false as any,
         })
 
       if (error) {
         return { success: false, error: error.message }
       }
 
-      // Get public URL
-      const { data: urlData } = this.client.storage
+      const { data: urlData } = this.getClient()!.storage
         .from(bucketName)
         .getPublicUrl(fullPath)
 
@@ -95,7 +111,6 @@ class StorageService {
     }
   }
 
-  // Upload PDF specifically
   async uploadPDF(
     userId: string,
     farmId: string,
@@ -108,27 +123,31 @@ class StorageService {
     return this.uploadFile(bucketName, fileName, file, {
       folder: folderPath,
       contentType: 'application/pdf',
-      cacheControl: 86400, // 24 hours
+      cacheControl: 86400,
     })
   }
 
-  // Delete file
   async deleteFile(bucketName: string, filePath: string): Promise<boolean> {
-    const { error } = await this.client.storage
+    if (!this.getClient()) return false
+
+    const { error } = await this.getClient()!.storage
       .from(bucketName)
       .remove([filePath])
 
     return !error
   }
 
-  // Get signed URL for private access
   async getSignedUrl(
     bucketName: string,
     filePath: string,
     expiresIn: number = 3600
   ): Promise<SignedUrlResult> {
     try {
-      const { data, error } = await this.client.storage
+      if (!this.getClient()) {
+        return { success: false, error: 'Supabase storage is not configured' }
+      }
+
+      const { data, error } = await this.getClient()!.storage
         .from(bucketName)
         .createSignedUrl(filePath, expiresIn)
 
@@ -145,14 +164,18 @@ class StorageService {
     }
   }
 
-  // Create signed upload URL (for client-side uploads)
   async createSignedUploadUrl(
     bucketName: string,
     filePath: string,
     contentType: string
   ): Promise<SignedUrlResult> {
     try {
-      const { data, error } = await this.client.storage
+      if (!this.getClient()) {
+        return { success: false, error: 'Supabase storage is not configured' }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (this.getClient()!.storage as any)
         .from(bucketName)
         .createSignedUploadUrl(filePath, contentType)
 
@@ -169,45 +192,49 @@ class StorageService {
     }
   }
 
-  // Copy file
   async copyFile(
     bucketName: string,
     sourcePath: string,
     destinationPath: string
   ): Promise<boolean> {
-    const { error } = await this.client.storage
+    if (!this.getClient()) return false
+
+    const { error } = await this.getClient()!.storage
       .from(bucketName)
       .copy(sourcePath, destinationPath)
 
     return !error
   }
 
-  // Get file metadata
-  async getFileMetadata(bucketName: string, filePath: string): Promise<StorageFile | null> {
-    const { data, error } = await this.client.storage
+  async getFileMetadata(bucketName: string, filePath: string): Promise<Record<string, unknown> | null> {
+    if (!this.getClient()) return null
+
+    const { data, error } = await this.getClient()!.storage
       .from(bucketName)
       .info(filePath)
 
     if (error) return null
-    return data
+    return data as Record<string, unknown>
   }
 
-  // Move/Rename file
   async moveFile(
     bucketName: string,
     fromPath: string,
     toPath: string
   ): Promise<boolean> {
-    const { error } = await this.client.storage
+    if (!this.getClient()) return false
+
+    const { error } = await this.getClient()!.storage
       .from(bucketName)
       .move(fromPath, toPath)
 
     return !error
   }
 
-  // Download file
   async downloadFile(bucketName: string, filePath: string): Promise<Buffer | null> {
-    const { data, error } = await this.client.storage
+    if (!this.getClient()) return null
+
+    const { data, error } = await this.getClient()!.storage
       .from(bucketName)
       .download(filePath)
 
@@ -215,17 +242,13 @@ class StorageService {
     return Buffer.from(await data.arrayBuffer())
   }
 
-  // Validate file type
   validateFileType(mimeType: string): boolean {
     const allowedTypes = config.upload.allowedMimeTypes
     return allowedTypes.includes(mimeType)
   }
 
-  // Validate PDF
   validatePDF(mimeType: string, buffer: Buffer): boolean {
     if (mimeType !== 'application/pdf') return false
-
-    // Check PDF magic bytes
     const header = buffer.slice(0, 5).toString()
     return header === '%PDF-'
   }

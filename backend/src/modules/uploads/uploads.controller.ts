@@ -241,7 +241,7 @@ router.post('/confirm-upload', authenticate, async (req: AuthRequest, res: Respo
         farmId: farmId || null,
         fileName,
         fileType: fileType || 'DOCUMENT',
-        fileSize: fileSize || fileInfo?.metadata?.size || 0,
+        fileSize: fileSize || (fileInfo?.metadata as Record<string, unknown>)?.size as number || 0,
         mimeType,
         storageKey,
         bucketName: 'farm-documents',
