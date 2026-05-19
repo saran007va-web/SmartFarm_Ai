@@ -82,26 +82,28 @@ enum CropPhase {
 
 // User Account - Multi-tenant support
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
-  passwordHash      String    @map("password_hash")
-  firstName         String?   @map("first_name")
-  lastName          String?   @map("last_name")
-  phone             String?
-  avatarUrl         String?   @map("avatar_url")
-  role              UserRole  @default(VIEWER)
-  isActive          Boolean   @default(true) @map("is_active")
-  emailVerified     Boolean   @default(false) @map("email_verified")
-  lastLoginAt       DateTime? @map("last_login_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  phone         String?
+  avatarUrl     String?   @map("avatar_url")
+  role          UserRole  @default(VIEWER)
+  isActive      Boolean   @default(false) @map("is_active")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  otpCode       String?   @map("otp_code")
+  otpExpiresAt  DateTime? @map("otp_expires_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  farms             FarmUser[]
-  notifications     Notification[]
-  aiInsights        AIInsight[]
-  uploadFiles       UploadedFile[]
-  sessions          UserSession[]
+  farms         FarmUser[]
+  notifications Notification[]
+  aiInsights    AIInsight[]
+  uploadFiles   UploadedFile[]
+  sessions      UserSession[]
 
   // Indexes
   @@index([email])
@@ -111,17 +113,17 @@ model User {
 
 // User Session for JWT refresh tokens
 model UserSession {
-  id            String   @id @default(cuid())
-  userId        String   @map("user_id")
-  token         String   @unique
-  refreshToken  String?  @unique @map("refresh_token")
-  expiresAt     DateTime @map("expires_at")
-  ipAddress     String?  @map("ip_address")
-  userAgent     String?  @map("user_agent")
-  isRevoked     Boolean  @default(false) @map("is_revoked")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  token        String   @unique
+  refreshToken String?  @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  isRevoked    Boolean  @default(false) @map("is_revoked")
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -131,27 +133,28 @@ model UserSession {
 
 // Farm - Multi-tenant farm management
 model Farm {
-  id            String    @id @default(cuid())
-  name          String
-  location      String?
-  latitude      Float?
-  longitude     Float?
-  soilType      String?   @map("soil_type")
-  acreage       Float?
-  timezone      String    @default("Asia/Kolkata")
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  latitude  Float?
+  longitude Float?
+  soilType  String?  @map("soil_type")
+  acreage   Float?
+  timezone  String   @default("Asia/Kolkata")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  users         FarmUser[]
-  cropPlans     CropPlan[]
-  tasks         Task[]
+  users          FarmUser[]
+  farmPlots      FarmPlot[]
+  cropPlans      CropPlan[]
+  tasks          Task[]
   weatherHistory WeatherHistory[]
   marketHistory  MarketPriceHistory[]
   yieldRecords   YieldRecord[]
-  uploads       UploadedFile[]
-  aiInsights    AIInsight[]
+  uploads        UploadedFile[]
+  aiInsights     AIInsight[]
 
   // Indexes
   @@index([name])
@@ -161,31 +164,31 @@ model Farm {
 
 // Farm Plot - 3D Digital Twin visualization data
 model FarmPlot {
-  id            String    @id @default(cuid())
-  farmId        String    @map("farm_id")
-  name          String
-  type          String    // 'rice', 'wheat', 'maize', 'vegetables', 'orchard', 'greenhouse'
-  positionX     Float     @default(0) @map("position_x")
-  positionY     Float     @default(0) @map("position_y")
-  positionZ     Float     @default(0) @map("position_z")
-  sizeWidth     Float     @default(5) @map("size_width")
-  sizeDepth     Float     @default(5) @map("size_depth")
-  growthStage   String?   @map("growth_stage")
-  soilMoisture  Float?    @map("soil_moisture")
-  temperature   Float?
-  humidity      Float?
-  nutrients     String?
-  waterConsumption Float? @map("water_consumption")
-  healthScore   Float?    @map("health_score")
-  pestRisk      String?   @map("pest_risk")
-  harvestDate   DateTime? @map("harvest_date")
-  yieldEstimate String?   @map("yield_estimate")
-  irrigationActive Boolean @default(false) @map("irrigation_active")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(cuid())
+  farmId           String    @map("farm_id")
+  name             String
+  type             String // 'rice', 'wheat', 'maize', 'vegetables', 'orchard', 'greenhouse'
+  positionX        Float     @default(0) @map("position_x")
+  positionY        Float     @default(0) @map("position_y")
+  positionZ        Float     @default(0) @map("position_z")
+  sizeWidth        Float     @default(5) @map("size_width")
+  sizeDepth        Float     @default(5) @map("size_depth")
+  growthStage      String?   @map("growth_stage")
+  soilMoisture     Float?    @map("soil_moisture")
+  temperature      Float?
+  humidity         Float?
+  nutrients        String?
+  waterConsumption Float?    @map("water_consumption")
+  healthScore      Float?    @map("health_score")
+  pestRisk         String?   @map("pest_risk")
+  harvestDate      DateTime? @map("harvest_date")
+  yieldEstimate    String?   @map("yield_estimate")
+  irrigationActive Boolean   @default(false) @map("irrigation_active")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  farm          Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
   // Indexes
   @@index([farmId])
@@ -194,15 +197,15 @@ model FarmPlot {
 
 // Farm User - Many-to-many relationship with roles
 model FarmUser {
-  id        String    @id @default(cuid())
-  userId    String    @map("user_id")
-  farmId    String    @map("farm_id")
-  role      UserRole  @default(VIEWER)
-  isActive  Boolean   @default(true) @map("is_active")
-  joinedAt  DateTime  @default(now()) @map("joined_at")
+  id       String   @id @default(cuid())
+  userId   String   @map("user_id")
+  farmId   String   @map("farm_id")
+  role     UserRole @default(VIEWER)
+  isActive Boolean  @default(true) @map("is_active")
+  joinedAt DateTime @default(now()) @map("joined_at")
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm      Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
   @@unique([userId, farmId])
   @@index([userId])
@@ -212,25 +215,25 @@ model FarmUser {
 
 // Crop Plan - Agricultural planning
 model CropPlan {
-  id              String      @id @default(cuid())
-  farmId          String      @map("farm_id")
-  cropName        String      @map("crop_name")
-  variety         String?
-  areaHa          Float?      @map("area_ha")
-  expectedYield   Float?      @map("expected_yield")
-  yieldUnit       String?     @map("yield_unit")
-  startDate       DateTime    @map("start_date")
-  endDate         DateTime    @map("end_date")
-  currentPhase    CropPhase   @default(PREPARATION) @map("current_phase")
-  notes           String?
-  isActive        Boolean     @default(true) @map("is_active")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+  id            String    @id @default(cuid())
+  farmId        String    @map("farm_id")
+  cropName      String    @map("crop_name")
+  variety       String?
+  areaHa        Float?    @map("area_ha")
+  expectedYield Float?    @map("expected_yield")
+  yieldUnit     String?   @map("yield_unit")
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime  @map("end_date")
+  currentPhase  CropPhase @default(PREPARATION) @map("current_phase")
+  notes         String?
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  farm            Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  tasks           Task[]
-  aiInsights      AIInsight[]
+  farm       Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  tasks      Task[]
+  aiInsights AIInsight[]
 
   // Indexes
   @@index([farmId])
@@ -243,31 +246,31 @@ model CropPlan {
 
 // Task - Maintenance task scheduling
 model Task {
-  id            String        @id @default(cuid())
-  planId        String?       @map("plan_id")
-  farmId        String        @map("farm_id")
-  taskType      TaskType      @map("task_type")
-  title         String
-  description   String?
-  scheduledDate DateTime      @map("scheduled_date")
-  completedDate DateTime?     @map("completed_date")
-  dueDate       DateTime?     @map("due_date")
-  status        TaskStatus    @default(PENDING)
-  priority      TaskPriority  @default(MEDIUM)
-  quantity      Float?
-  unit          String?
-  notes         String?
-  isAutoGenerated Boolean    @default(false) @map("is_auto_generated")
-  yieldImpact   Float?        @map("yield_impact")
-  recoveryAction String?     @map("recovery_action")
-  completedAt   DateTime?     @map("completed_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id              String       @id @default(cuid())
+  planId          String?      @map("plan_id")
+  farmId          String       @map("farm_id")
+  taskType        TaskType     @map("task_type")
+  title           String
+  description     String?
+  scheduledDate   DateTime     @map("scheduled_date")
+  completedDate   DateTime?    @map("completed_date")
+  dueDate         DateTime?    @map("due_date")
+  status          TaskStatus   @default(PENDING)
+  priority        TaskPriority @default(MEDIUM)
+  quantity        Float?
+  unit            String?
+  notes           String?
+  isAutoGenerated Boolean      @default(false) @map("is_auto_generated")
+  yieldImpact     Float?       @map("yield_impact")
+  recoveryAction  String?      @map("recovery_action")
+  completedAt     DateTime?    @map("completed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  plan          CropPlan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
-  farm          Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  notifications  Notification[]
+  plan          CropPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  farm          Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  notifications Notification[]
   aiInsights    AIInsight[]
 
   // Indexes
@@ -282,26 +285,26 @@ model Task {
 
 // Uploaded File - Supabase Storage metadata
 model UploadedFile {
-  id            String      @id @default(cuid())
-  userId        String      @map("user_id")
-  farmId        String?     @map("farm_id")
-  fileName      String      @map("file_name")
-  fileType      FileType    @map("file_type")
-  fileSize      Int         @map("file_size")
-  mimeType      String?     @map("mime_type")
-  storageKey    String      @unique @map("storage_key")
-  bucketName    String      @map("bucket_name")
-  publicUrl     String?     @map("public_url")
-  isPublic      Boolean     @default(false) @map("is_public")
-  checksum      String?
-  metadata      Json?
-  description   String?
-  tags          String[]
-  uploadedAt    DateTime    @default(now()) @map("uploaded_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  farmId      String?  @map("farm_id")
+  fileName    String   @map("file_name")
+  fileType    FileType @map("file_type")
+  fileSize    Int      @map("file_size")
+  mimeType    String?  @map("mime_type")
+  storageKey  String   @unique @map("storage_key")
+  bucketName  String   @map("bucket_name")
+  publicUrl   String?  @map("public_url")
+  isPublic    Boolean  @default(false) @map("is_public")
+  checksum    String?
+  metadata    Json?
+  description String?
+  tags        String[]
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm          Farm?       @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm Farm? @relation(fields: [farmId], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([userId])
@@ -313,45 +316,45 @@ model UploadedFile {
 
 // Weather History - Weather data persistence
 model WeatherHistory {
-  id              String   @id @default(cuid())
-  farmId          String   @map("farm_id")
-  location        String
-  latitude        Float
-  longitude       Float
-  temperature     Float
-  humidity        Int
-  windSpeed       Float
-  weatherCode     Int      @map("weather_code")
-  weatherDesc     String   @map("weather_description")
-  precipitation   Float
-  recordedAt      DateTime @map("recorded_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id            String   @id @default(cuid())
+  farmId        String   @map("farm_id")
+  location      String
+  latitude      Float
+  longitude     Float
+  temperature   Float
+  humidity      Int
+  windSpeed     Float
+  weatherCode   Int      @map("weather_code")
+  weatherDesc   String   @map("weather_description")
+  precipitation Float
+  recordedAt    DateTime @map("recorded_at")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  farm            Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
+  @@unique([farmId, location, recordedAt])
   // Indexes
   @@index([farmId])
   @@index([location])
   @@index([recordedAt])
-  @@unique([farmId, location, recordedAt])
   @@map("weather_history")
 }
 
 // Market Price History - Agricultural market prices
 model MarketPriceHistory {
-  id              String   @id @default(cuid())
-  farmId          String?  @map("farm_id")
-  cropName        String   @map("crop_name")
-  marketType      String   @map("market_type")
-  market          String
-  pricePerKg      Float    @map("price_per_kg")
-  currency        String   @default("INR")
-  trend           String?
-  unit            String   @default("₹/kg")
-  recordedAt      DateTime @map("recorded_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id         String   @id @default(cuid())
+  farmId     String?  @map("farm_id")
+  cropName   String   @map("crop_name")
+  marketType String   @map("market_type")
+  market     String
+  pricePerKg Float    @map("price_per_kg")
+  currency   String   @default("INR")
+  trend      String?
+  unit       String   @default("₹/kg")
+  recordedAt DateTime @map("recorded_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  farm            Farm?    @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  farm Farm? @relation(fields: [farmId], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([farmId])
@@ -364,19 +367,19 @@ model MarketPriceHistory {
 
 // Yield Record - Harvest tracking
 model YieldRecord {
-  id            String    @id @default(cuid())
-  farmId        String    @map("farm_id")
-  cropName      String    @map("crop_name")
-  quantity      Float
-  unit          String
-  revenue       Float?
-  harvestDate   DateTime  @map("harvest_date")
-  quality       String?
-  notes         String?
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  farmId      String   @map("farm_id")
+  cropName    String   @map("crop_name")
+  quantity    Float
+  unit        String
+  revenue     Float?
+  harvestDate DateTime @map("harvest_date")
+  quality     String?
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  farm          Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
   // Indexes
   @@index([farmId])
@@ -387,25 +390,25 @@ model YieldRecord {
 
 // AI Insight - AI-generated recommendations
 model AIInsight {
-  id            String        @id @default(cuid())
-  userId        String        @map("user_id")
-  farmId        String?       @map("farm_id")
-  planId        String?       @map("plan_id")
-  taskId        String?       @map("task_id")
-  insightType   String        @map("insight_type")
-  title         String
-  description   String
-  severity      TaskPriority  @default(MEDIUM)
-  confidence    Float?
-  metadata      Json?
-  isRead        Boolean       @default(false) @map("is_read")
-  isActioned    Boolean       @default(false) @map("is_actioned")
-  createdAt     DateTime      @default(now()) @map("created_at")
+  id          String       @id @default(cuid())
+  userId      String       @map("user_id")
+  farmId      String?      @map("farm_id")
+  planId      String?      @map("plan_id")
+  taskId      String?      @map("task_id")
+  insightType String       @map("insight_type")
+  title       String
+  description String
+  severity    TaskPriority @default(MEDIUM)
+  confidence  Float?
+  metadata    Json?
+  isRead      Boolean      @default(false) @map("is_read")
+  isActioned  Boolean      @default(false) @map("is_actioned")
+  createdAt   DateTime     @default(now()) @map("created_at")
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm          Farm?         @relation(fields: [farmId], references: [id], onDelete: SetNull)
-  plan          CropPlan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
-  task          Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm Farm?     @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  plan CropPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  task Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([userId])
@@ -420,20 +423,20 @@ model AIInsight {
 
 // Notification System
 model Notification {
-  id            String            @id @default(cuid())
-  userId        String            @map("user_id")
-  taskId        String?           @map("task_id")
-  type          NotificationType  @default(SYSTEM)
-  title         String
-  message       String
-  data          Json?
-  isRead        Boolean           @default(false) @map("is_read")
-  isArchived    Boolean           @default(false) @map("is_archived")
-  sentAt        DateTime          @default(now()) @map("sent_at")
-  readAt        DateTime?         @map("read_at")
+  id         String           @id @default(cuid())
+  userId     String           @map("user_id")
+  taskId     String?          @map("task_id")
+  type       NotificationType @default(SYSTEM)
+  title      String
+  message    String
+  data       Json?
+  isRead     Boolean          @default(false) @map("is_read")
+  isArchived Boolean          @default(false) @map("is_archived")
+  sentAt     DateTime         @default(now()) @map("sent_at")
+  readAt     DateTime?        @map("read_at")
 
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task          Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   // Indexes
   @@index([userId])
@@ -445,14 +448,14 @@ model Notification {
 
 // Autosave Draft - For draft autosave functionality
 model AutosaveDraft {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  entityType  String   @map("entity_type")
-  entityId    String?  @map("entity_id")
-  data        Json
-  isPartial   Boolean  @default(true) @map("is_partial")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  data       Json
+  isPartial  Boolean  @default(true) @map("is_partial")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Indexes
   @@unique([userId, entityType, entityId])
@@ -469,7 +472,7 @@ model ChatSession {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  messages  ChatMessage[]
+  messages ChatMessage[]
 
   @@index([deviceId])
   @@map("chat_sessions")
@@ -479,12 +482,12 @@ model ChatSession {
 model ChatMessage {
   id        String   @id @default(cuid())
   sessionId String   @map("session_id")
-  role      String   // 'user' or 'assistant'
+  role      String // 'user' or 'assistant'
   content   String
   language  String?
   createdAt DateTime @default(now()) @map("created_at")
 
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@map("chat_messages")

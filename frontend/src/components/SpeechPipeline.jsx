@@ -34,11 +34,10 @@ export function SpeechPipeline({
   const voiceCode = getVoiceCode(language);
   const inputLang = inputLanguage || language;
 
-  // Speech recognition with 5 second silence detection
+  // Speech recognition
   const { isListening, isSupported, startListening, stopListening, toggleListening, updateLanguage } = useVoiceInput({
     language: getVoiceCode(inputLang),
     continuous: false,
-    inactivityTimeoutMs: 5000, // Process after 5 seconds of no input
     onResult: (text, isFinal) => {
       if (isFinal) {
         handleFinalSpeech(text);
@@ -130,25 +129,16 @@ export function SpeechPipeline({
   }, [language, stop, stopListening]);
 
   const toggleVoice = useCallback(() => {
-    console.log('toggleVoice called, disabled:', disabled, 'isSpeaking:', isSpeaking, 'isSupported:', isSupported);
     if (disabled) return;
     if (isSpeaking) {
       stop();
     } else {
-      console.log('Calling toggleListening...');
       toggleListening();
     }
   }, [disabled, isSpeaking, toggleListening, stop]);
 
   if (!isSupported) {
-    console.warn('Web Speech API not supported in this browser. Voice features disabled.');
-    return children ? children({
-      toggleVoice: () => alert('Voice input not supported in this browser. Please use Chrome or Edge.'),
-      isListening: false,
-      isSpeaking: false,
-      isProcessing: false,
-      speakReply: () => {}
-    }) : null;
+    return children ? children({ toggleVoice, isListening, isSpeaking, isProcessing, speakReply }) : null;
   }
 
   return children ? children({

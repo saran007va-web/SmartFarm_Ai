@@ -259,6 +259,22 @@ const startServer = async () => {
     console.warn(error)
   }
 
+  // Always start the HTTP server even if Redis is unavailable.
+  // Background jobs can degrade independently from the API surface.
+  httpServer.listen(config.server.port, '0.0.0.0', () => {
+    console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║   Smart AI Farming Platform - Backend Server             ║
+╠═══════════════════════════════════════════════════════════╣
+║   Server running on port ${config.server.port}                             ║
+║   Environment: ${config.server.nodeEnv.padEnd(36)}║
+║   Database: ${dbConnected ? 'Connected'.padEnd(36) : 'Not Available'.padEnd(36)}║
+║   Redis: Checking...                                     ║
+║   WebSocket: Enabled                                     ║
+╚═══════════════════════════════════════════════════════════╝
+    `)
+  })
+
   try {
     // Test Redis connection
     const redisOk = await redisService.isHealthy()
@@ -268,19 +284,7 @@ const startServer = async () => {
       console.warn('Redis not available, continuing without cache')
     }
 
-    httpServer.listen(config.server.port, () => {
-      console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║   Smart AI Farming Platform - Backend Server             ║
-╠═══════════════════════════════════════════════════════════╣
-║   Server running on port ${config.server.port}                             ║
-║   Environment: ${config.server.nodeEnv.padEnd(36)}║
-║   Database: ${dbConnected ? 'Connected'.padEnd(36) : 'Not Available'.padEnd(36)}║
-║   Redis: ${redisOk ? 'Connected'.padEnd(36) : 'Not Available'.padEnd(36)}║
-║   WebSocket: Enabled                                     ║
-╚═══════════════════════════════════════════════════════════╝
-      `)
-    })
+    console.log(`Redis status: ${redisOk ? 'connected' : 'not available'}`)
   } catch (error) {
     console.error('Failed to start server:', error)
     process.exit(1)

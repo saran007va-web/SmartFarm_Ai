@@ -1,6 +1,5 @@
 import { Cloud, Droplets, Sun, Wind, Thermometer, CloudRain, CloudSun, MapPin, RefreshCw, Calendar } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import TopBar from '../components/TopBar'
 import { getCurrentWeather, getWeatherForecast } from '../services/api'
 
 const WEATHER_ICONS = {
@@ -200,8 +199,6 @@ export default function Weather() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar title="Weather" subtitle="Live weather updates for your region" />
-
       <div className="page-container">
         {/* Location Selector */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">

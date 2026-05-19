@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import prisma from '../../services/database'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { optionalAuth, AuthRequest } from '../auth/auth.middleware'
+import llmService from '../../services/llm'
 
 const router = Router()
 
@@ -28,100 +29,140 @@ router.get('/crops/list', async (req, res: Response): Promise<void> => {
 })
 
 // Crop prediction endpoint
-router.post('/crop', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/crop', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
-      soil_type,
-      climate,
-      season,
-      acreage,
-      budget,
-      market_demand,
+      nitrogen, phosphorus, potassium,
+      temperature, humidity, ph, rainfall,
+      soil_type, climate, season, acreage, budget, market_demand,
     } = req.body
 
-    // Simple rule-based crop recommendation
-    const recommendations: Array<{
-      crop: string
-      confidence: number
-      expected_yield: number
-      expected_revenue: number
-      duration_months: number
-      risk_level: string
-      reason: string
-    }> = []
+    // Determine soil type from NPK values if not provided directly
+    let determinedSoilType = soil_type
+    if (!determinedSoilType) {
+      if (ph < 6) determinedSoilType = 'Acidic'
+      else if (ph > 8) determinedSoilType = 'Alkaline'
+      else if (nitrogen > 100 && phosphorus > 80) determinedSoilType = 'Fertile loam'
+      else if (nitrogen < 40 && phosphorus < 30) determinedSoilType = 'Sandy'
+      else determinedSoilType = 'Loamy'
+    }
 
-    // Analyze based on soil type
-    if (soil_type?.toLowerCase().includes('clay')) {
+    // Determine season from temperature and rainfall
+    let determinedSeason = season
+    if (!determinedSeason) {
+      if (rainfall > 150 && humidity > 70) determinedSeason = 'Kharif'
+      else if (temperature < 25 && rainfall < 100) determinedSeason = 'Rabi'
+      else determinedSeason = 'Zaid'
+    }
+
+    // Get LLM-based recommendation
+    let llmResult
+    try {
+      llmResult = await llmService.generateCropRecommendation({
+        soilType: determinedSoilType,
+        climate: climate || (humidity > 70 ? 'Humid' : 'Dry'),
+        season: determinedSeason,
+        acreage: acreage || 5,
+        budget: budget || 100000,
+        marketDemand: market_demand || 'Moderate',
+      })
+    } catch (llmError) {
+      console.warn('LLM recommendation failed, using fallback:', llmError)
+    }
+
+    // Build recommendations array
+    const recommendations = []
+
+    if (llmResult) {
       recommendations.push({
-        crop: 'Paddy/Rice',
-        confidence: 85,
-        expected_yield: acreage * 3.5,
-        expected_revenue: acreage * 52500,
-        duration_months: 6,
+        crop: llmResult.recommended_crop,
+        confidence: llmResult.confidence,
+        expected_yield: (llmResult.recommended_crop.toLowerCase().includes('rice') ? 3500 : 4000) * (acreage || 5),
+        expected_revenue: 50000 * (acreage || 5),
+        duration_months: 4,
         risk_level: 'low',
-        reason: 'Clay soil retains water well, ideal for paddy cultivation',
+        reason: llmResult.reason,
       })
-    }
 
-    if (soil_type?.toLowerCase().includes('sandy')) {
-      recommendations.push({
-        crop: 'Groundnut',
-        confidence: 78,
-        expected_yield: acreage * 1.8,
-        expected_revenue: acreage * 36000,
-        duration_months: 5,
-        risk_level: 'medium',
-        reason: 'Sandy soil is suitable for groundnut with good drainage',
-      })
-    }
+      for (const alt of (llmResult.alternatives || []).slice(0, 3)) {
+        recommendations.push({
+          crop: alt.crop,
+          confidence: alt.confidence,
+          expected_yield: 3500 * (acreage || 5),
+          expected_revenue: 45000 * (acreage || 5),
+          duration_months: 4,
+          risk_level: 'medium',
+          reason: `Alternative crop with ${alt.confidence}% suitability`,
+        })
+      }
+    } else {
+      // Fallback recommendations
+      if (determinedSoilType.toLowerCase().includes('clay') || determinedSoilType.toLowerCase().includes('fertile')) {
+        recommendations.push({
+          crop: 'Rice',
+          confidence: 85,
+          expected_yield: 3500 * (acreage || 5),
+          expected_revenue: 52500 * (acreage || 5),
+          duration_months: 6,
+          risk_level: 'low',
+          reason: 'Clay/fertile soil retains water well, ideal for rice cultivation',
+        })
+      }
 
-    // Add defaults if no specific match
-    if (recommendations.length === 0) {
-      recommendations.push(
-        {
+      if (determinedSoilType.toLowerCase().includes('sandy') || determinedSoilType.toLowerCase().includes('acid')) {
+        recommendations.push({
+          crop: 'Groundnut',
+          confidence: 78,
+          expected_yield: 1800 * (acreage || 5),
+          expected_revenue: 36000 * (acreage || 5),
+          duration_months: 5,
+          risk_level: 'medium',
+          reason: 'Sandy/acidic soil is suitable for groundnut with good drainage',
+        })
+      }
+
+      if (recommendations.length === 0) {
+        recommendations.push({
           crop: 'Maize',
           confidence: 75,
-          expected_yield: acreage * 4,
-          expected_revenue: acreage * 48000,
+          expected_yield: 4000 * (acreage || 5),
+          expected_revenue: 48000 * (acreage || 5),
           duration_months: 4,
           risk_level: 'low',
-          reason: 'Maize adapts well to various soil types',
-        },
-        {
-          crop: 'Vegetables (Tomato/Chilli)',
-          confidence: 70,
-          expected_yield: acreage * 10,
-          expected_revenue: acreage * 100000,
-          duration_months: 3,
-          risk_level: 'medium',
-          reason: 'High-value crops with quick returns',
-        }
-      )
-    }
+          reason: 'Maize adapts well to various soil types and climates',
+        })
+      }
 
-    // Adjust based on season
-    if (season?.toLowerCase() === 'rabi') {
       recommendations.push({
         crop: 'Wheat',
-        confidence: 80,
-        expected_yield: acreage * 3,
-        expected_revenue: acreage * 45000,
+        confidence: 72,
+        expected_yield: 3000 * (acreage || 5),
+        expected_revenue: 45000 * (acreage || 5),
         duration_months: 5,
         risk_level: 'low',
-        reason: 'Rabi season is ideal for wheat cultivation',
+        reason: 'Good for Rabi season with moderate soil conditions',
       })
     }
 
     // Sort by confidence
     recommendations.sort((a, b) => b.confidence - a.confidence)
 
+    // Return format expected by frontend
     res.json({
+      recommended_crop: recommendations[0]?.crop || 'Maize',
+      confidence: recommendations[0]?.confidence || 75,
+      reason: recommendations[0]?.reason || 'Based on your soil and climate conditions',
+      alternatives: recommendations.slice(1, 5).map(r => ({
+        crop: r.crop,
+        confidence: r.confidence,
+      })),
       recommendations: recommendations.slice(0, 5),
       analysis: {
-        soil_type,
+        soil_type: determinedSoilType,
         climate,
-        season,
-        acreage,
+        season: determinedSeason,
+        acreage: acreage || 5,
+        nitrogen, phosphorus, potassium, temperature, humidity, ph, rainfall,
       },
     })
   } catch (error) {
@@ -131,9 +172,14 @@ router.post('/crop', authenticate, async (req: AuthRequest, res: Response): Prom
 })
 
 // Yield prediction endpoint
-router.post('/yield', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/yield', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
+      crop_name,
+      area_hectares,
+      fertilizer_kg,
+      pesticide_kg,
+      annual_rainfall_mm,
       crop,
       variety,
       area,
@@ -144,8 +190,16 @@ router.post('/yield', authenticate, async (req: AuthRequest, res: Response): Pro
       weather_conditions,
     } = req.body
 
+    // Use frontend parameters or fall back to backend parameters
+    const cropName = crop_name || crop || 'maize'
+    const areaHa = parseFloat(area_hectares) || parseFloat(area) || 5
+    const fertilizer = parseFloat(fertilizer_kg) || 0
+    const pesticide = parseFloat(pesticide_kg) || 0
+    const rainfall = parseFloat(annual_rainfall_mm) || 1500
+
     // Base yields (kg per hectare)
     const baseYields: Record<string, number> = {
+      'rice': 3500,
       'paddy': 3500,
       'wheat': 3000,
       'maize': 4000,
@@ -156,48 +210,68 @@ router.post('/yield', authenticate, async (req: AuthRequest, res: Response): Pro
       'potato': 25000,
       'onion': 20000,
       'tomato': 40000,
+      'chickpea': 1500,
+      'kidneybeans': 1200,
+      'pigeonpeas': 1200,
+      'mungbean': 800,
+      'blackgram': 800,
+      'lentil': 1200,
+      'pomegranate': 15000,
+      'banana': 30000,
+      'mango': 15000,
+      'grapes': 20000,
+      'watermelon': 25000,
+      'muskmelon': 20000,
+      'apple': 15000,
+      'orange': 20000,
+      'papaya': 40000,
+      'coconut': 10000,
+      'jute': 2500,
+      'coffee': 1500,
     }
 
-    const baseYield = baseYields[crop?.toLowerCase()] || 3000
+    const baseYield = baseYields[cropName?.toLowerCase()] || 3000
 
     // Calculate yield modifiers
     let yieldModifier = 1.0
 
-    // Irrigation method
-    if (irrigation_method === 'drip') yieldModifier *= 1.25
-    else if (irrigation_method === 'sprinkler') yieldModifier *= 1.15
+    // Fertilizer impact
+    if (fertilizer > 500) yieldModifier *= 1.2
+    else if (fertilizer > 200) yieldModifier *= 1.1
+    else if (fertilizer > 0) yieldModifier *= 1.05
 
-    // Fertilizer
-    if (fertilizer_used === 'organic') yieldModifier *= 1.1
-    else if (fertilizer_used === 'both') yieldModifier *= 1.2
+    // Pesticide impact
+    if (pesticide > 50) yieldModifier *= 1.15
+    else if (pesticide > 10) yieldModifier *= 1.1
+    else if (pesticide > 0) yieldModifier *= 1.05
 
-    // Pest management
-    if (pest_management === 'ipm') yieldModifier *= 1.15
+    // Rainfall adjustment
+    if (rainfall >= 1000 && rainfall <= 2000) yieldModifier *= 1.1
+    else if (rainfall < 500) yieldModifier *= 0.85
+    else if (rainfall > 3000) yieldModifier *= 0.9
 
-    // Weather adjustment
-    if (weather_conditions?.favorable) yieldModifier *= 1.1
-    else if (weather_conditions?.unfavorable) yieldModifier *= 0.85
+    const predictedYieldKgPerHa = Math.round(baseYield * yieldModifier)
+    const totalProduction = predictedYieldKgPerHa * areaHa
 
-    const areaHa = parseFloat(area) || 1
-    const predictedYield = baseYield * areaHa * yieldModifier
-
+    // Return format expected by frontend
     res.json({
-      crop,
-      variety,
-      predicted_yield: Math.round(predictedYield),
-      unit: 'kg',
+      predicted_yield_kg_per_ha: predictedYieldKgPerHa,
+      total_production_kg: totalProduction,
+      crop: cropName,
+      area_hectares: areaHa,
       confidence: 75,
+      note: fertilizer > 0 ? `With ${fertilizer}kg/ha fertilizer application` : 'Optimize fertilizer use for better yield',
       factors: {
         base_yield: baseYield,
-        irrigation_method,
-        fertilizer_used,
-        pest_management,
         yield_modifier: yieldModifier,
+        fertilizer_kg: fertilizer,
+        pesticide_kg: pesticide,
+        annual_rainfall_mm: rainfall,
       },
       tips: [
-        'Use drip irrigation for 25% yield increase',
-        'Apply integrated pest management',
-        'Monitor weather forecasts regularly',
+        fertilizer > 200 ? 'Good fertilizer usage for optimal yield' : 'Consider increasing fertilizer for better results',
+        rainfall < 1000 ? 'Ensure adequate irrigation given low rainfall' : 'Rainfall conditions are favorable',
+        'Monitor crop health regularly',
       ],
     })
   } catch (error) {

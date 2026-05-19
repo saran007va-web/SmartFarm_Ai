@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart, Bar, CartesianGrid, Cell,
   Legend, Pie, PieChart, ResponsiveContainer,
@@ -10,9 +11,10 @@ import {
 } from 'lucide-react'
 
 import StatCard from '../components/StatCard'
-import TopBar from '../components/TopBar'
 import { StatSkeleton } from '../components/Skeleton'
 import { getRagStats, getStats, getStatsBreakdown, getStatsHistory } from '../services/api'
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3002"
 
 const ACTIVITY_COLORS = ['#10b981', '#3b82f6', '#a855f7']
 const PIE_COLORS = ['#10b981', '#3b82f6', '#a855f7', '#f59e0b']
@@ -25,7 +27,7 @@ const QUICK_ACTIONS = [
 ]
 
 const FEATURES = [
-  { icon: Zap, label: 'Real-time AI', desc: 'Powered by Groq LLM APIs' },
+  { icon: Zap, label: 'Real-time AI', desc: 'Powered by Mistral 7B via OpenRouter' },
   { icon: Shield, label: 'Local Processing', desc: 'All ML models run locally on your machine' },
   { icon: BookOpen, label: 'RAG Pipeline', desc: 'Upload docs and get grounded answers' },
 ]
@@ -55,11 +57,55 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [stats, setStats] = useState(null)
   const [ragStats, setRagStats] = useState(null)
   const [history, setHistory] = useState([])
   const [breakdown, setBreakdown] = useState([])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Check for token in URL (from Google OAuth redirect)
+    const urlToken = searchParams.get("token")
+    const urlUser = searchParams.get("user")
+
+    if (urlUser) {
+      try {
+        const parsedUser = JSON.parse(urlUser)
+        localStorage.setItem("vaagai_token", urlToken || localStorage.getItem("vaagai_token") || "")
+        localStorage.setItem("user", JSON.stringify(parsedUser))
+        if (parsedUser?.id) {
+          localStorage.setItem("vaagai_user_id", parsedUser.id)
+        }
+        navigate("/farm", { replace: true })
+      } catch {
+        navigate("/signin")
+      }
+      return
+    }
+
+    if (urlToken) {
+      localStorage.setItem("vaagai_token", urlToken)
+      fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${urlToken}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.user) {
+            localStorage.setItem("user", JSON.stringify(data.user))
+            if (data.user?.id) {
+              localStorage.setItem("vaagai_user_id", data.user.id)
+            }
+            navigate("/farm", { replace: true })
+          }
+        })
+        .catch(() => {
+          navigate("/signin")
+        })
+      return
+    }
+  }, [navigate, searchParams])
 
   useEffect(() => {
     Promise.all([getStats(), getRagStats(), getStatsHistory(), getStatsBreakdown()])
@@ -74,13 +120,7 @@ export default function Dashboard() {
   }, [])
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar
-        title="Dashboard"
-        subtitle="Welcome back — here's your farm at a glance"
-      />
-
-      <div className="page-container">
+    <div className="page-container">
         {/* ── Stat Cards ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8 stagger-children">
           {loading ? (
@@ -454,7 +494,6 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-      </div>
     </div>
   )
 }

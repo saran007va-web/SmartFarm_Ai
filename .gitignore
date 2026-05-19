@@ -3,9 +3,9 @@
 .env.*
 !.env.example
 !.env.sample
-agriassist-backend/.env
-agriassist-backend/.env.*
-!agriassist-backend/.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
 frontend/.env
 frontend/.env.*
 

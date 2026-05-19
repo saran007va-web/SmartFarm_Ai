@@ -1,11 +1,11 @@
 import { Router, Response } from 'express'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { optionalAuth, AuthRequest } from '../auth/auth.middleware'
 import prisma from '../../services/database'
 
 const router = Router()
 
 // Get dashboard stats
-router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     // Get counts from database
     const farmCount = await prisma.farm.count()
@@ -28,7 +28,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 })
 
 // Get stats history
-router.get('/history', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/history', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     // Return mock history data
     res.json({
@@ -43,7 +43,7 @@ router.get('/history', authenticate, async (req: AuthRequest, res: Response): Pr
 })
 
 // Get stats breakdown
-router.get('/breakdown', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/breakdown', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     // Get yield breakdown by crop
     const yieldRecords = await prisma.yieldRecord.findMany({
@@ -68,7 +68,7 @@ router.get('/breakdown', authenticate, async (req: AuthRequest, res: Response): 
 })
 
 // Get weekly yields
-router.get('/weekly-yields', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/weekly-yields', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     // Return mock weekly data
     res.json({

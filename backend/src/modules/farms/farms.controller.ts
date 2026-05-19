@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import prisma from '../../services/database'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { authenticate, optionalAuth, AuthRequest } from '../auth/auth.middleware'
 
 const router = Router()
 
@@ -18,8 +18,13 @@ const createFarmSchema = z.object({
 const updateFarmSchema = createFarmSchema.partial()
 
 // Get all farms for user
-router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.json({ farms: [] })
+      return
+    }
+
     const farms = await prisma.farm.findMany({
       where: {
         users: {
@@ -47,8 +52,13 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 })
 
 // Get single farm
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(404).json({ error: 'Farm not found' })
+      return
+    }
+
     const farm = await prisma.farm.findFirst({
       where: {
         id: req.params.id,

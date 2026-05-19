@@ -33,23 +33,18 @@ export function UserMemoryProvider({ children }) {
   const loadProfile = useCallback(async () => {
     if (!deviceId) return;
     try {
-      console.debug(`Loading profile for device_id: ${deviceId}`);
       const [profileRes, statsRes] = await Promise.allSettled([
         getUserProfile(deviceId),
         getLearningStats(deviceId),
       ]);
       if (profileRes.status === 'fulfilled') {
         setProfile(profileRes.value.data);
-      } else if (profileRes.status === 'rejected') {
-        console.warn(`Failed to load profile for device_id '${deviceId}':`, profileRes.reason);
       }
       if (statsRes.status === 'fulfilled') {
         setStats(statsRes.value.data);
-      } else if (statsRes.status === 'rejected') {
-        console.warn(`Failed to load stats for device_id '${deviceId}':`, statsRes.reason);
       }
-    } catch (err) {
-      console.error('Profile loading error:', err);
+    } catch {
+      // Silently fail - profile is optional
     } finally {
       setInitialized(true);
     }

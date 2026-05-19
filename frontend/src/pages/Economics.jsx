@@ -1,7 +1,6 @@
 import { DollarSign, TrendingUp, TrendingDown, Calculator } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import TopBar from '../components/TopBar'
 import { getProfitMargin, getMarketPrices, getCropsList } from '../services/api'
 
 const INITIAL_FORM = {
@@ -66,17 +65,15 @@ export default function Economics() {
   }
 
   const costData = result ? [
-    { name: 'Fertilizer', value: result.breakdown?.fertilizer_cost ?? 0 },
-    { name: 'Pesticide', value: result.breakdown?.pesticide_cost ?? 0 },
-    { name: 'Labor', value: result.breakdown?.labor_cost ?? 0 },
+    { name: 'Fertilizer', value: result.breakdown.fertilizer_cost },
+    { name: 'Pesticide', value: result.breakdown.pesticide_cost },
+    { name: 'Labor', value: result.breakdown.labor_cost },
   ] : []
 
-  const isProfitable = result && (result.profit_margin ?? 0) > 0
+  const isProfitable = result && result.profit_margin > 0
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar title="Profit Margin Calculator" subtitle="Estimate revenue and costs for your crop" />
-      <div className="page-container">
+    <div className="page-container">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Input Form */}
           <div className="card" style={{ padding: '28px', borderColor: 'var(--color-border)' }}>
@@ -158,11 +155,11 @@ export default function Economics() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--color-text-muted)' }}>Total Cost</p>
-                    <p className="font-bold" style={{ fontSize: '1rem', color: 'var(--color-text)' }}>₹{(result.total_cost ?? 0).toLocaleString()}</p>
+                    <p className="font-bold" style={{ fontSize: '1rem', color: 'var(--color-text)' }}>₹{result.total_cost.toLocaleString()}</p>
                   </div>
                   <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--color-text-muted)' }}>Revenue</p>
-                    <p className="font-bold" style={{ fontSize: '1rem', color: '#0ea5e9' }}>₹{(result.total_revenue ?? 0).toLocaleString()}</p>
+                    <p className="font-bold" style={{ fontSize: '1rem', color: '#0ea5e9' }}>₹{result.total_revenue.toLocaleString()}</p>
                   </div>
                   <div
                     className="text-center p-3 rounded-xl"
@@ -181,7 +178,7 @@ export default function Economics() {
                       className="font-bold"
                       style={{ fontSize: '1rem', color: isProfitable ? '#15803d' : '#b91c1c' }}
                     >
-                      ₹{(result.profit_margin ?? 0).toLocaleString()}
+                      ₹{result.profit_margin.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -200,7 +197,7 @@ export default function Economics() {
                       className="font-extrabold"
                       style={{ fontSize: '1.875rem', color: isProfitable ? '#15803d' : '#b91c1c' }}
                     >
-                      {result.profit_margin_pct ?? 0}%
+                      {result.profit_margin_pct}%
                     </p>
                     <p
                       className="text-xs"
@@ -233,11 +230,11 @@ export default function Economics() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl p-4" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                       <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>Total Cost</p>
-                      <p className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>₹{(result.total_cost ?? 0).toLocaleString()}</p>
+                      <p className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>₹{result.total_cost.toLocaleString()}</p>
                     </div>
                     <div className="rounded-xl p-4" style={{ background: isProfitable ? 'var(--color-success-bg)' : 'var(--color-warning-bg)', border: `1px solid ${isProfitable ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
                       <p className="text-xs font-medium mb-1" style={{ color: isProfitable ? '#15803d' : '#b45309' }}>Profit</p>
-                      <p className="text-lg font-bold" style={{ color: isProfitable ? '#15803d' : '#b45309' }}>₹{Math.max(0, (result.profit_margin ?? 0)).toLocaleString()}</p>
+                      <p className="text-lg font-bold" style={{ color: isProfitable ? '#15803d' : '#b45309' }}>₹{Math.max(0, result.profit_margin).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

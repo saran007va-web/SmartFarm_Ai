@@ -2,7 +2,6 @@ import { FolderOpen, Plus, Pencil, Trash2, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts'
 import EmptyState from '../components/EmptyState'
-import TopBar from '../components/TopBar'
 import { createYieldRecord, deleteYieldRecord, getYieldRecords, updateYieldRecord } from '../services/api'
 
 const CROP_OPTIONS = ['Rice', 'Wheat', 'Maize', 'Tomato', 'Potato', 'Onion', 'Soybean', 'Cotton', 'Sugarcane', 'Groundnut', 'Sunflower', 'Chilli', 'Turmeric', 'Coffee', 'Tea', 'Banana', 'Mango']
@@ -99,7 +98,6 @@ export default function Records() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar title="Yield Records" subtitle="Track and analyse harvest data over time" />
       <div className="page-container">
 
         {error && <div className="alert alert-danger mb-6"><span>⚠️</span><span>{error}</span></div>}

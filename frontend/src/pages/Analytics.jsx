@@ -1,21 +1,18 @@
-import { useRef, useState, useEffect } from 'react'
-import { Line, LineChart, BarChart, Bar, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts'
-import { FileUp, FileSearch, FileText, SearchX, Upload, Database, BookOpen, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, Leaf, Zap, Calendar, Download, Eye, Trash2, X, Code } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Line, LineChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { FileUp, FileSearch, FileText, SearchX, Upload, Database, BookOpen, CheckCircle2, AlertCircle } from 'lucide-react'
 
-import TopBar from '../components/TopBar'
 import EmptyState from '../components/EmptyState'
-import { getRagStats, queryDocuments, uploadDocument, getDocuments, downloadDocument, getDocumentContent, deleteDocument } from '../services/api'
-import { getWeeklyYields } from '../services/api'
+import { getRagStats, queryDocuments, uploadDocument } from '../services/api'
 
-const CROP_COLORS = {
-  'rice': '#10b981',
-  'wheat': '#3b82f6',
-  'maize': '#f59e0b',
-  'sugarcane': '#ef4444',
-  'cotton': '#8b5cf6',
-  'pulses': '#ec4899',
-  'corn': '#f59e0b',
-}
+const SAMPLE_YIELD_DATA = [
+  { year: '2019', rice: 3800, wheat: 2900, maize: 4800 },
+  { year: '2020', rice: 4100, wheat: 3100, maize: 5200 },
+  { year: '2021', rice: 3950, wheat: 3300, maize: 5000 },
+  { year: '2022', rice: 4400, wheat: 3500, maize: 5600 },
+  { year: '2023', rice: 4600, wheat: 3200, maize: 5900 },
+  { year: '2024', rice: 4750, wheat: 3600, maize: 6100 },
+]
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -35,47 +32,9 @@ export default function Analytics() {
   const [querying, setQuerying] = useState(false)
   const [answer, setAnswer] = useState(null)
   const [stats, setStats] = useState(null)
-  const [documents, setDocuments] = useState([])
-  const [loadingDocs, setLoadingDocs] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
-  const [weeklyData, setWeeklyData] = useState(null)
-  const [loadingYields, setLoadingYields] = useState(false)
-  const [viewingDoc, setViewingDoc] = useState(null)
-  const [docContent, setDocContent] = useState('')
-  const [deletingId, setDeletingId] = useState(null)
   const fileRef = useRef(null)
-
-  // Load documents
-  const loadDocuments = async () => {
-    setLoadingDocs(true)
-    try {
-      const resp = await getDocuments()
-      setDocuments(resp.data.documents || [])
-    } catch (err) {
-      console.error('Failed to load documents:', err)
-    } finally {
-      setLoadingDocs(false)
-    }
-  }
-
-  // Load weekly yield data
-  const loadWeeklyYields = async () => {
-    setLoadingYields(true)
-    try {
-      const resp = await getWeeklyYields()
-      setWeeklyData(resp.data)
-      } catch (err) {
-        console.error('Failed to load weekly yields:', err)
-    } finally {
-      setLoadingYields(false)
-    }
-  }
-
-  useEffect(() => {
-    loadWeeklyYields()
-    loadDocuments()
-  }, [])
 
   const handleUpload = async () => {
     if (!file) return
@@ -87,50 +46,9 @@ export default function Analytics() {
       setUploadResult(resp.data)
       const statsResp = await getRagStats()
       setStats(statsResp.data)
-      setFile(null)
-      await loadDocuments()
     } catch (err) {
       setError(err.response?.data?.detail || 'Upload failed. Please try again.')
     } finally { setUploading(false) }
-  }
-
-  const handleViewDocument = async (doc) => {
-    setViewingDoc(doc)
-    try {
-      const resp = await getDocumentContent(doc.id)
-      setDocContent(resp.data.content)
-    } catch (err) {
-      setError(`Failed to load document: ${err.response?.data?.detail || err.message}`)
-    }
-  }
-
-  const handleDownloadDocument = async (doc) => {
-    try {
-      const blob = await downloadDocument(doc.id)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = doc.filename
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (err) {
-      setError(`Download failed: ${err.response?.data?.detail || err.message}`)
-    }
-  }
-
-  const handleDeleteDocument = async (docId) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return
-    setDeletingId(docId)
-    try {
-      await deleteDocument(docId)
-      await loadDocuments()
-    } catch (err) {
-      setError(`Failed to delete: ${err.response?.data?.detail || err.message}`)
-    } finally {
-      setDeletingId(null)
-    }
   }
 
   const handleQuery = async () => {
@@ -144,215 +62,37 @@ export default function Analytics() {
     } finally { setQuerying(false) }
   }
 
-  const formatDate = (isoString) => {
-    const date = new Date(isoString)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  const getChangeColor = (percent) => {
-    if (percent > 0) return '#10b981' // green
-    if (percent < 0) return '#ef4444' // red
-    return '#6b7280' // gray
-  }
-
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar
-        title="Analytics"
-        subtitle="Weekly yields, crop performance, and document insights"
-      />
-
-      <div className="page-container">
-        {/* ── Weekly Yields Section ──────────────────────── */}
-        {weeklyData && !loadingYields && (
-          <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="card" style={{ padding: '20px', borderColor: 'var(--color-border)' }}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>Current Week Records</p>
-                    <p className="text-3xl font-extrabold" style={{ color: 'var(--color-primary)' }}>{weeklyData.total_records_current}</p>
-                    <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      {weeklyData.crops?.length || 0} crops tracked
-                    </p>
-                  </div>
-                  <Calendar size={24} style={{ color: 'var(--color-primary)', opacity: 0.3 }} />
-                </div>
-              </div>
-
-              <div className="card" style={{ padding: '20px', borderColor: 'var(--color-border)' }}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>Previous Week Records</p>
-                    <p className="text-3xl font-extrabold" style={{ color: '#8b5cf6' }}>{weeklyData.total_records_previous}</p>
-                    <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      Week of {formatDate(weeklyData.previous_week)}
-                    </p>
-                  </div>
-                  <Calendar size={24} style={{ color: '#8b5cf6', opacity: 0.3 }} />
-                </div>
-              </div>
-
-              <div className="card" style={{ padding: '20px', borderColor: 'var(--color-border)' }}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>Avg Yield This Week</p>
-                    <p className="text-3xl font-extrabold" style={{ color: '#f59e0b' }}>
-                      {weeklyData.crops && weeklyData.crops.length > 0 
-                        ? (weeklyData.crops.reduce((sum, c) => sum + c.current_week.average, 0) / weeklyData.crops.length).toFixed(1)
-                        : '0'
-                      }
-                    </p>
-                    <p className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }}>kg/ha</p>
-                  </div>
-                  <Zap size={24} style={{ color: '#f59e0b', opacity: 0.3 }} />
-                </div>
-              </div>
+    <div className="page-container">
+        {/* ── Yield Trends Chart ─────────────────────────── */}
+        <div className="card mb-8" style={{ padding: '24px', borderColor: 'var(--color-border)' }}>
+          <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
+            <div>
+              <h2 className="section-title">Yield Trends</h2>
+              <p className="section-subtitle">Historical crop yield data (kg/ha) — sample data</p>
             </div>
-
-            {/* Crop-wise Detailed Cards */}
-            {weeklyData.crops && weeklyData.crops.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {weeklyData.crops.map((cropData) => (
-                  <div key={cropData.crop} className="card" style={{ padding: '24px', borderColor: 'var(--color-border)' }}>
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center"
-                          style={{ background: `${CROP_COLORS[cropData.crop.toLowerCase()] || '#6b7280'}20` }}
-                        >
-                          <Leaf size={20} style={{ color: CROP_COLORS[cropData.crop.toLowerCase()] || '#6b7280' }} />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold capitalize" style={{ color: 'var(--color-text)' }}>
-                            {cropData.crop}
-                          </h3>
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {cropData.current_week.count} records
-                          </p>
-                        </div>
-                      </div>
-                      <div
-                        className="flex items-center gap-1 px-3 py-1 rounded-lg"
-                        style={{ background: `${getChangeColor(cropData.change_percent)}20` }}
-                      >
-                        {cropData.change_percent > 0 ? (
-                          <TrendingUp size={16} style={{ color: getChangeColor(cropData.change_percent) }} />
-                        ) : (
-                          <TrendingDown size={16} style={{ color: getChangeColor(cropData.change_percent) }} />
-                        )}
-                        <span style={{ color: getChangeColor(cropData.change_percent), fontSize: '0.875rem', fontWeight: 600 }}>
-                          {cropData.change_percent > 0 ? '+' : ''}{cropData.change_percent}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Current Week Metrics */}
-                    <div className="mb-5 pb-5" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--color-text-muted)' }}>This Week Performance</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div
-                          className="p-3 rounded-lg"
-                          style={{ background: 'var(--color-surface-2)' }}
-                        >
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Average Yield</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: 'var(--color-primary)' }}>
-                            {cropData.current_week.average}
-                          </p>
-                          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>kg/ha</p>
-                        </div>
-                        <div
-                          className="p-3 rounded-lg"
-                          style={{ background: 'var(--color-surface-2)' }}
-                        >
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Total Yield</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: '#3b82f6' }}>
-                            {cropData.current_week.total}
-                          </p>
-                          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>kg</p>
-                        </div>
-                        <div
-                          className="p-3 rounded-lg"
-                          style={{ background: 'var(--color-surface-2)' }}
-                        >
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Min Yield</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: '#ef4444' }}>
-                            {cropData.current_week.min}
-                          </p>
-                          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>kg/ha</p>
-                        </div>
-                        <div
-                          className="p-3 rounded-lg"
-                          style={{ background: 'var(--color-surface-2)' }}
-                        >
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Max Yield</p>
-                          <p className="text-xl font-bold mt-1" style={{ color: '#10b981' }}>
-                            {cropData.current_week.max}
-                          </p>
-                          <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>kg/ha</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Comparison with Previous Week */}
-                    <div className="mb-5 pb-5" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-text-muted)' }}>vs Previous Week</p>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                            This week: <strong>{cropData.current_week.average} kg/ha</strong>
-                          </p>
-                          <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                            Last week: <strong>{cropData.previous_week.average} kg/ha</strong>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Farm Details */}
-                    {cropData.farms && cropData.farms.length > 0 && (
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--color-text-muted)' }}>Farms Growing This Crop</p>
-                        <div className="flex flex-wrap gap-2">
-                          {cropData.farms.map((farm, idx) => (
-                            <span
-                              key={idx}
-                              className="badge"
-                              style={{
-                                background: `${CROP_COLORS[cropData.crop.toLowerCase()] || '#6b7280'}20`,
-                                color: CROP_COLORS[cropData.crop.toLowerCase()] || '#6b7280',
-                                fontSize: '0.75rem',
-                                padding: '6px 10px'
-                              }}
-                            >
-                              {farm}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="card mb-8" style={{ padding: '48px 24px', borderColor: 'var(--color-border)', textAlign: 'center' }}>
-                <Leaf size={48} style={{ margin: '0 auto', color: 'var(--color-text-muted)', opacity: 0.3, marginBottom: 16 }} />
-                <p className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text)' }}>No Yield Records Yet</p>
-                <p style={{ color: 'var(--color-text-muted)' }}>Start logging yield records to see your farm's performance analytics.</p>
-              </div>
-            )}
-          </>
-        )}
-
-        {loadingYields && (
-          <div className="card mb-8" style={{ padding: '48px 24px', borderColor: 'var(--color-border)', textAlign: 'center' }}>
-            <div className="spinner mx-auto mb-4"></div>
-            <p style={{ color: 'var(--color-text-muted)' }}>Loading yield analytics...</p>
+            <span className="badge badge-warning text-xs">Demo Data</span>
           </div>
-        )}
+          <div style={{ height: 280 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={SAMPLE_YIELD_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="year" tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={v => `${(v / 1000).toFixed(1)}k`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} iconType="circle" iconSize={8} />
+                <Line type="monotone" dataKey="rice" name="Rice" stroke="#10b981" strokeWidth={2.5} dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 7 }} />
+                <Line type="monotone" dataKey="wheat" name="Wheat" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 4 }} activeDot={{ r: 7 }} />
+                <Line type="monotone" dataKey="maize" name="Maize" stroke="#f59e0b" strokeWidth={2.5} dot={{ fill: '#f59e0b', r: 4 }} activeDot={{ r: 7 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-        {/* Documents Section */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* ── Left: Upload + Stats ────────────────────── */}
           <div className="space-y-6">
@@ -442,89 +182,6 @@ export default function Analytics() {
                   <span>
                     Indexed <strong>{uploadResult.filename}</strong> — {uploadResult.chunks_indexed} chunks created
                   </span>
-                </div>
-              )}
-            </div>
-
-            {/* Uploaded Documents List */}
-            <div className="card" style={{ padding: '24px', borderColor: 'var(--color-border)' }}>
-              <div className="flex items-center gap-2 mb-5">
-                <div className="flex items-center justify-center rounded-xl" style={{ width: 36, height: 36, background: 'rgba(59,130,246,0.1)' }}>
-                  <FileText size={17} style={{ color: '#3b82f6' }} strokeWidth={2} />
-                </div>
-                <div>
-                  <h2 className="section-title">Uploaded Documents</h2>
-                  <p className="section-subtitle">{documents.length} file{documents.length !== 1 ? 's' : ''} stored</p>
-                </div>
-              </div>
-
-              {loadingDocs ? (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <div className="spinner mx-auto mb-2"></div>
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading documents...</p>
-                </div>
-              ) : documents.length > 0 ? (
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-3 rounded-lg"
-                      style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {doc.file_type === '.pdf' ? (
-                          <FileText size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
-                        ) : doc.file_type === '.md' ? (
-                          <Code size={18} style={{ color: '#8b5cf6', flexShrink: 0 }} />
-                        ) : (
-                          <FileText size={18} style={{ color: '#3b82f6', flexShrink: 0 }} />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text)' }}>
-                            {doc.filename}
-                          </p>
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {(doc.file_size / 1024).toFixed(1)} KB • {doc.chunk_count} chunks
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 ml-2">
-                        <button
-                          onClick={() => handleViewDocument(doc)}
-                          className="btn btn-ghost btn-icon btn-sm"
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadDocument(doc)}
-                          className="btn btn-ghost btn-icon btn-sm"
-                          title="Download"
-                        >
-                          <Download size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          disabled={deletingId === doc.id}
-                          className="btn btn-ghost btn-icon btn-sm"
-                          title="Delete"
-                        >
-                          {deletingId === doc.id ? (
-                            <span className="spinner spinner-xs"></span>
-                          ) : (
-                            <Trash2 size={16} style={{ color: '#ef4444' }} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <FileText size={32} style={{ margin: '0 auto', color: 'var(--color-text-muted)', opacity: 0.3, marginBottom: 8 }} />
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                    No documents uploaded yet
-                  </p>
                 </div>
               )}
             </div>
@@ -650,92 +307,6 @@ export default function Analytics() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Document Viewing Modal */}
-        {viewingDoc && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.7)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-              padding: '20px'
-            }}
-            onClick={() => setViewingDoc(null)}
-          >
-            <div
-              className="card"
-              style={{
-                padding: '24px',
-                borderColor: 'var(--color-border)',
-                maxWidth: '800px',
-                width: '100%',
-                maxHeight: '80vh',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
-                    {viewingDoc.filename}
-                  </h3>
-                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    {(viewingDoc.file_size / 1024).toFixed(1)} KB • {viewingDoc.file_type}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setViewingDoc(null)}
-                  className="btn btn-ghost btn-icon"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div
-                style={{
-                  flex: 1,
-                  overflow: 'auto',
-                  background: 'var(--color-surface-2)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  marginBottom: '16px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.875rem',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  color: 'var(--color-text-secondary)'
-                }}
-              >
-                {docContent}
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleDownloadDocument(viewingDoc)}
-                  className="btn btn-primary flex-1"
-                >
-                  <Download size={16} /> Download
-                </button>
-                <button
-                  onClick={() => setViewingDoc(null)}
-                  className="btn btn-ghost flex-1"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

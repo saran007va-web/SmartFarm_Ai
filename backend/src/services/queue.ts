@@ -12,6 +12,13 @@ const connection = hasRedis
     })
   : null
 
+if (connection) {
+  connection.on('error', (error) => {
+    console.warn('Redis queue connection unavailable, running without background jobs')
+    console.warn(error)
+  })
+}
+
 const noopQueue = {
   add: async () => undefined,
   close: async () => undefined,
@@ -29,6 +36,12 @@ export const marketQueue: Queue = hasRedis
     })
   : noopQueue
 
+if (hasRedis) {
+  marketQueue.on('error', (error) => {
+    console.warn('Market queue error:', error.message)
+  })
+}
+
 export const insightsQueue: Queue = hasRedis
   ? new Queue('ai-insights', {
       connection: connection!,
@@ -40,6 +53,12 @@ export const insightsQueue: Queue = hasRedis
       },
     })
   : noopQueue
+
+if (hasRedis) {
+  insightsQueue.on('error', (error) => {
+    console.warn('Insights queue error:', error.message)
+  })
+}
 
 export const notificationsQueue: Queue = hasRedis
   ? new Queue('notifications', {
@@ -53,6 +72,12 @@ export const notificationsQueue: Queue = hasRedis
     })
   : noopQueue
 
+if (hasRedis) {
+  notificationsQueue.on('error', (error) => {
+    console.warn('Notifications queue error:', error.message)
+  })
+}
+
 export const cleanupQueue: Queue = hasRedis
   ? new Queue('cleanup', {
       connection: connection!,
@@ -63,6 +88,12 @@ export const cleanupQueue: Queue = hasRedis
       },
     })
   : noopQueue
+
+if (hasRedis) {
+  cleanupQueue.on('error', (error) => {
+    console.warn('Cleanup queue error:', error.message)
+  })
+}
 
 let marketRefreshWorker: Worker | null = null
 let insightsWorker: Worker | null = null
@@ -86,6 +117,10 @@ if (hasRedis) {
 
   marketRefreshWorker.on('failed', (job, err) => {
     console.error(`Market refresh job ${job?.id} failed:`, err.message)
+  })
+
+  marketRefreshWorker.on('error', (error) => {
+    console.warn('Market refresh worker error:', error.message)
   })
 
   insightsWorker = new Worker(
@@ -119,6 +154,10 @@ if (hasRedis) {
     console.error(`Insights job ${job?.id} failed:`, err.message)
   })
 
+  insightsWorker.on('error', (error) => {
+    console.warn('Insights worker error:', error.message)
+  })
+
   notificationWorker = new Worker(
     'notifications',
     async (job: Job) => {
@@ -149,6 +188,10 @@ if (hasRedis) {
     console.error(`Notification job ${job?.id} failed:`, err.message)
   })
 
+  notificationWorker.on('error', (error) => {
+    console.warn('Notifications worker error:', error.message)
+  })
+
   cleanupWorker = new Worker(
     'cleanup',
     async (job: Job) => {
@@ -177,6 +220,10 @@ if (hasRedis) {
 
   cleanupWorker.on('failed', (job, err) => {
     console.error(`Cleanup job ${job?.id} failed:`, err.message)
+  })
+
+  cleanupWorker.on('error', (error) => {
+    console.warn('Cleanup worker error:', error.message)
   })
 }
 

@@ -1,22 +1,21 @@
 import { useEffect, useState } from 'react'
 import {
   Loader2, Moon, Sun, Wifi, WifiOff,
-  Bell, Search, ChevronDown, LogOut,
+  Bell, Search, ChevronDown, LogOut, Menu, X,
 } from 'lucide-react'
 import { getStats } from '../services/api'
-import { useTheme } from '../contexts/ThemeContext'
 
 const STATUS_CONFIG = {
   connected: {
     icon: Wifi,
-    dot: 'bg-emerald-500',
-    badge: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-500/30',
+    dot: 'bg-green-600',
+    badge: 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 border border-green-200/60 dark:border-green-500/30',
     label: 'Connected',
   },
   disconnected: {
     icon: WifiOff,
-    dot: 'bg-rose-500',
-    badge: 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-500/30',
+    dot: 'bg-red-500',
+    badge: 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 border border-red-200/60 dark:border-red-500/30',
     label: 'Offline',
   },
   loading: {
@@ -51,8 +50,11 @@ function ThemeToggle({ isDark, onToggle }) {
   )
 }
 
-export default function TopBar({ title, subtitle, status = 'connected', actions }) {
-  const { setMode, derived } = useTheme()
+export default function TopBar({ title, subtitle, status = 'connected', actions, onMenuToggle, menuOpen }) {
+  const [dark, setDark] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return document.documentElement.classList.contains('dark')
+  })
   const [apiStatus, setApiStatus] = useState(status)
   const config = STATUS_CONFIG[apiStatus] || STATUS_CONFIG.loading
   const StatusIcon = config.icon
@@ -62,6 +64,12 @@ export default function TopBar({ title, subtitle, status = 'connected', actions 
   }, [status])
 
   useEffect(() => {
+    const saved = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isDark = saved === 'dark' || (!saved && prefersDark)
+    document.documentElement.classList.toggle('dark', isDark)
+    setDark(isDark)
+
     // Probe API health
     const checkApi = async () => {
       setApiStatus('loading')
@@ -78,33 +86,56 @@ export default function TopBar({ title, subtitle, status = 'connected', actions 
   }, [])
 
   const toggleDark = () => {
-    const nextMode = derived === 'dark' ? 'light' : 'dark'
-    setMode(nextMode)
+    const isDark = document.documentElement.classList.toggle('dark')
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+    setDark(isDark)
   }
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center px-6 gap-4"
+      className="flex items-center px-4 sm:px-6 gap-3 sm:gap-4"
       style={{
         height: 'var(--topbar-height)',
-        background: 'var(--color-surface)',
-        backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--color-border)',
+        background: 'linear-gradient(180deg, rgba(12, 20, 14, 0.98) 0%, rgba(16, 28, 18, 0.92) 100%)',
+        backdropFilter: 'blur(18px)',
+        borderBottom: '1px solid rgba(123, 207, 137, 0.14)',
       }}
     >
+
+      {/* Mobile Menu Button */}
+      {onMenuToggle && (
+        <button
+          onClick={onMenuToggle}
+          className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+        >
+          {menuOpen ? (
+            <X size={22} style={{ color: 'var(--color-text)' }} />
+          ) : (
+            <Menu size={22} style={{ color: 'var(--color-text)' }} />
+          )}
+        </button>
+      )}
 
       {/* Title */}
       <div className="flex-1 min-w-0">
         <h1
           className="leading-none font-bold tracking-tight"
-          style={{ fontSize: '1.0625rem', color: 'var(--color-text)' }}
+          style={{
+            fontSize: '1.0625rem',
+            color: '#eefdf0',
+            background: 'linear-gradient(90deg, #f1fff3 0%, #b8ffd0 45%, #7cf0a8 100%)',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            textShadow: '0 0 16px rgba(123, 241, 168, 0.08)',
+          }}
         >
           {title}
         </h1>
         {subtitle && (
           <p
             className="mt-0.5 text-xs leading-none"
-            style={{ color: 'var(--color-text-muted)' }}
+            style={{ color: '#95be9f' }}
           >
             {subtitle}
           </p>
@@ -118,7 +149,7 @@ export default function TopBar({ title, subtitle, status = 'connected', actions 
           className="btn btn-ghost btn-icon hide-mobile"
           style={{ borderRadius: 'var(--radius-md)' }}
         >
-          <Search size={17} strokeWidth={2} style={{ color: 'var(--color-text-muted)' }} />
+          <Search size={17} strokeWidth={2} style={{ color: '#90b69a' }} />
         </button>
 
         {/* Notifications bell */}
@@ -126,20 +157,20 @@ export default function TopBar({ title, subtitle, status = 'connected', actions 
           className="btn btn-ghost btn-icon relative hide-mobile"
           style={{ borderRadius: 'var(--radius-md)' }}
         >
-          <Bell size={17} strokeWidth={2} style={{ color: 'var(--color-text-muted)' }} />
+          <Bell size={17} strokeWidth={2} style={{ color: '#90b69a' }} />
           <span
             className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-            style={{ background: 'var(--color-primary)', boxShadow: '0 0 6px rgba(16,185,129,0.5)' }}
+            style={{ background: 'var(--color-primary)', boxShadow: '0 0 6px rgba(45,122,45,0.5)' }}
           />
         </button>
 
         {/* Theme toggle */}
-        <ThemeToggle isDark={derived === 'dark'} onToggle={toggleDark} />
+        <ThemeToggle isDark={dark} onToggle={toggleDark} />
 
         {/* API Status */}
         <div
           className="flex items-center gap-2 pl-2"
-          style={{ borderLeft: '1px solid var(--color-border)' }}
+          style={{ borderLeft: '1px solid rgba(123, 207, 137, 0.14)' }}
         >
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${config.badge}`}

@@ -52,4 +52,10 @@ export default {
   groqApi: {
     key: process.env.GROQ_API_KEY || '',
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
+  },
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
 }

@@ -1,6 +1,5 @@
 import { Radio, Wifi, Copy, CheckCircle, AlertTriangle, Droplets, Thermometer, CloudRain, Activity } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import TopBar from '../components/TopBar'
 import { getApiBaseUrl, getSensorReadings, getWebhookUrl, sendSensorData } from '../services/api'
 
 const SENSOR_TYPES = ['soil_moisture', 'temperature', 'humidity', 'rainfall', 'soil_ph']
@@ -92,7 +91,6 @@ export default function Sensors() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar title="IoT Sensors" subtitle="Real-time sensor data and webhook configuration" />
       <div className="page-container">
 
         {/* Webhook URL */}

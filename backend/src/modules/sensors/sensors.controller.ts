@@ -1,20 +1,19 @@
 import { Router, Response } from 'express'
 import prisma from '../../services/database'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { optionalAuth, authenticate, AuthRequest } from '../auth/auth.middleware'
 import { io } from '../../index'
 import crypto from 'crypto'
 
 const router = Router()
 
 // Generate webhook URL for sensor data
-router.get('/webhook-url', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/webhook-url', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId
     const webhookToken = crypto.randomBytes(32).toString('hex')
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3002'
 
-    // Store the webhook token (in production, use a dedicated table)
     res.json({
-      webhook_url: `/api/sensors/data?token=${webhookToken}`,
+      webhook_url: `${baseUrl}/api/sensors/data?token=${webhookToken}`,
       token: webhookToken,
       instructions: 'Send POST requests to this URL with sensor data in JSON format',
     })
@@ -27,28 +26,42 @@ router.get('/webhook-url', authenticate, async (req: AuthRequest, res: Response)
 // Receive sensor data (webhook endpoint)
 router.post('/data', async (req, res: Response): Promise<void> => {
   try {
-    const { token, sensor_id, temperature, humidity, soil_moisture, light, timestamp } = req.body
+    const {
+      token, sensor_id, sensor_type, value, unit,
+      temperature, humidity, soil_moisture, light,
+      farm_id, timestamp
+    } = req.body
 
-    // Validate token (simplified - in production use proper auth)
-    if (!token) {
-      res.status(401).json({ error: 'Unauthorized' })
-      return
-    }
-
-    const sensorData = {
-      sensorId: sensor_id || 'sensor-001',
-      temperature: parseFloat(temperature) || 0,
-      humidity: parseFloat(humidity) || 0,
-      soilMoisture: parseFloat(soil_moisture) || 0,
-      light: parseFloat(light) || 0,
-      timestamp: timestamp || new Date().toISOString(),
+    // Handle different payload formats
+    let sensorData
+    if (sensor_type !== undefined && value !== undefined) {
+      // Frontend format
+      sensorData = {
+        id: crypto.randomUUID(),
+        sensor_id: sensor_id || 'sensor-001',
+        sensor_type: sensor_type,
+        value: parseFloat(value) || 0,
+        unit: unit || '',
+        farm_id: farm_id || null,
+        timestamp: timestamp || new Date().toISOString(),
+      }
+    } else {
+      // IoT device format
+      sensorData = {
+        id: crypto.randomUUID(),
+        sensor_id: sensor_id || 'sensor-001',
+        sensor_type: 'temperature',
+        temperature: parseFloat(temperature) || 0,
+        humidity: parseFloat(humidity) || 0,
+        soil_moisture: parseFloat(soil_moisture) || 0,
+        light: parseFloat(light) || 0,
+        farm_id: farm_id || null,
+        timestamp: timestamp || new Date().toISOString(),
+      }
     }
 
     // Broadcast to connected clients
     io.emit('sensor:data', sensorData)
-
-    // Store in database (create table if needed)
-    console.log('Sensor data received:', sensorData)
 
     res.json({
       success: true,
@@ -61,44 +74,56 @@ router.post('/data', async (req, res: Response): Promise<void> => {
 })
 
 // Get sensor readings
-router.get('/readings', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/readings', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { farm_id, sensor_id, from, to } = req.query
+    const { sensor_type, farm_id, limit = 50 } = req.query
 
-    // In production, query from a sensor_readings table
-    // For now, return mock data structure
+    // Return mock readings in format expected by frontend
     const readings = [
       {
-        sensorId: sensor_id || 'sensor-001',
-        type: 'temperature',
+        id: crypto.randomUUID(),
+        sensor_type: 'soil_moisture',
+        value: 45,
+        unit: '%',
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        sensor_type: 'temperature',
         value: 28.5,
         unit: '°C',
         timestamp: new Date().toISOString(),
       },
       {
-        sensorId: sensor_id || 'sensor-001',
-        type: 'humidity',
+        id: crypto.randomUUID(),
+        sensor_type: 'humidity',
         value: 65,
         unit: '%',
         timestamp: new Date().toISOString(),
       },
       {
-        sensorId: sensor_id || 'sensor-001',
-        type: 'soil_moisture',
-        value: 42,
-        unit: '%',
+        id: crypto.randomUUID(),
+        sensor_type: 'rainfall',
+        value: 0,
+        unit: 'mm',
         timestamp: new Date().toISOString(),
       },
       {
-        sensorId: sensor_id || 'sensor-001',
-        type: 'light',
-        value: 850,
-        unit: 'lux',
+        id: crypto.randomUUID(),
+        sensor_type: 'soil_ph',
+        value: 6.5,
+        unit: 'pH',
         timestamp: new Date().toISOString(),
       },
     ]
 
-    res.json(readings)
+    // Filter by sensor_type if provided
+    let filteredReadings = readings
+    if (sensor_type) {
+      filteredReadings = readings.filter(r => r.sensor_type === sensor_type)
+    }
+
+    res.json({ readings: filteredReadings })
   } catch (error) {
     console.error('Get readings error:', error)
     res.status(500).json({ error: 'Failed to get readings' })
@@ -106,11 +131,10 @@ router.get('/readings', authenticate, async (req: AuthRequest, res: Response): P
 })
 
 // Subscribe to sensor updates via WebSocket
-router.post('/subscribe', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/subscribe', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { farm_id, sensor_ids } = req.body
 
-    // Join sensor room for real-time updates
     res.json({
       success: true,
       message: 'Subscribed to sensor updates',

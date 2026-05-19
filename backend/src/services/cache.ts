@@ -5,6 +5,23 @@ class RedisService {
   private client: Redis | null
   private subscriber: Redis | null
 
+  private markRedisUnavailable(reason: unknown): void {
+    const nodeErr = reason as NodeJS.ErrnoException & { errors?: Array<{ code?: string }> }
+    const isConnectionRefused =
+      nodeErr?.code === 'ECONNREFUSED' ||
+      nodeErr?.message?.includes('ECONNREFUSED') ||
+      nodeErr?.errors?.some((error) => error.code === 'ECONNREFUSED') ||
+      false
+
+    if (isConnectionRefused) {
+      console.warn('Redis not available, continuing without cache')
+      this.client = null
+      this.subscriber = null
+    } else {
+      console.error('Redis Client Error:', reason)
+    }
+  }
+
   constructor() {
     if (!config.redis.host) {
       this.client = null
@@ -33,23 +50,28 @@ class RedisService {
       this.subscriber = new Redis(redisOptions)
 
       this.client.on('error', (err) => {
-        // Silently handle connection errors when Redis not available
-        const nodeErr = err as NodeJS.ErrnoException
-        if (nodeErr.code === 'ECONNREFUSED') {
-          console.warn('Redis not available, continuing without cache')
-          this.client = null
-          this.subscriber = null
-        } else {
-          console.error('Redis Client Error:', err)
-        }
+        this.markRedisUnavailable(err)
+      })
+
+      this.subscriber.on('error', (err) => {
+        this.markRedisUnavailable(err)
       })
 
       this.client.on('connect', () => {
         console.log('Redis connected successfully')
       })
 
+      this.subscriber.on('connect', () => {
+        console.log('Redis subscriber connected successfully')
+      })
+
       // Try to connect once
       this.client.connect().catch(() => {
+        this.client = null
+        this.subscriber = null
+      })
+
+      this.subscriber.connect().catch(() => {
         this.client = null
         this.subscriber = null
       })

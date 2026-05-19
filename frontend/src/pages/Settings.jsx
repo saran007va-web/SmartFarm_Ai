@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Globe, Cpu, Layers, Lock, Eye, EyeOff, Server, Brain, ChevronDown, ChevronUp, RefreshCw, Info } from 'lucide-react'
 
-import TopBar from '../components/TopBar'
-import { getApiBaseUrl, getBackendHealth } from '../services/api'
+import { getApiBaseUrl } from '../services/api'
 
 const APP_CONFIG = [
   { icon: Brain, label: 'LLM Model', value: 'nvidia/nemotron-3-super-120b-a12b:free', note: 'Model used for chat and RAG' },
@@ -96,42 +95,7 @@ function AccordionSection({ icon: Icon, iconBg, iconColor, title, subtitle, chil
 export default function Settings() {
   const [apiKeyVisible, setApiKeyVisible] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
-  const [backendHealth, setBackendHealth] = useState({ state: 'checking', message: 'Checking backend...' })
   const backendUrl = getApiBaseUrl()
-
-  useEffect(() => {
-    let active = true
-
-    const checkBackend = async () => {
-      try {
-        const response = await getBackendHealth()
-        const data = response.data || {}
-        const connected = data.status === 'ok' && data.database === 'connected'
-
-        if (!active) return
-
-        setBackendHealth({
-          state: connected ? 'connected' : 'degraded',
-          message: connected
-            ? 'Backend and database are connected.'
-            : `Backend is ${data.status || 'degraded'}; database is ${data.database || 'unknown'}.`,
-        })
-      } catch {
-        if (!active) return
-
-        setBackendHealth({
-          state: 'offline',
-          message: 'Unable to reach the backend health endpoint.',
-        })
-      }
-    }
-
-    checkBackend()
-
-    return () => {
-      active = false
-    }
-  }, [])
 
   const handleSave = () => {
     setSavedMsg('Settings saved!')
@@ -140,7 +104,7 @@ export default function Settings() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar title="Settings" subtitle="Configure your SmartFarm AI environment" />
+      {/* TopBar is provided by the layout (AppLayout) to avoid duplicate headers */}
 
       <div className="page-container">
         {/* ── App Configuration ─────────────────────────────── */}
@@ -149,25 +113,6 @@ export default function Settings() {
           <p className="section-subtitle mb-4">Server-side settings for the SmartFarm AI backend</p>
           <div className="flex flex-col gap-3">
             <ConfigRow icon={Server} label="Backend URL" value={backendUrl} note="Resolved from VITE_API_URL" />
-            <div
-              className="flex items-center justify-between gap-4 p-4 rounded-xl"
-              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-            >
-              <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Backend Health</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{backendHealth.message}</p>
-              </div>
-              <span
-                className="text-sm font-mono px-3 py-1.5 rounded-xl flex-shrink-0"
-                style={{
-                  background: backendHealth.state === 'connected' ? 'rgba(16,185,129,0.08)' : backendHealth.state === 'degraded' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)',
-                  color: backendHealth.state === 'connected' ? 'var(--color-primary)' : backendHealth.state === 'degraded' ? '#f59e0b' : '#ef4444',
-                  border: backendHealth.state === 'connected' ? '1px solid rgba(16,185,129,0.2)' : backendHealth.state === 'degraded' ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(239,68,68,0.2)',
-                }}
-              >
-                {backendHealth.state === 'connected' ? 'Connected' : backendHealth.state === 'degraded' ? 'Degraded' : 'Offline'}
-              </span>
-            </div>
             {APP_CONFIG.map((item) => (
               <ConfigRow key={item.label} {...item} />
             ))}
@@ -194,10 +139,10 @@ export default function Settings() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text)' }}>
-                  Groq API Key
+                  OpenRouter API Key
                 </p>
                 <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                  Add your Groq API key to <code style={{ fontFamily: 'monospace', fontSize: '0.75rem', background: 'rgba(245,158,11,0.1)', padding: '1px 6px', borderRadius: 4 }}>backend/.env</code> to enable real AI responses in chat and RAG queries.
+                  Add your OpenRouter API key to <code style={{ fontFamily: 'monospace', fontSize: '0.75rem', background: 'rgba(245,158,11,0.1)', padding: '1px 6px', borderRadius: 4 }}>backend/.env</code> to enable real AI responses in chat and RAG queries.
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <code
@@ -208,7 +153,7 @@ export default function Settings() {
                       color: 'var(--color-text)',
                     }}
                   >
-                    GROQ_API_KEY=gsk_...
+                    OPENROUTER_API_KEY=sk-...
                   </code>
                   <button
                     onClick={() => setApiKeyVisible(!apiKeyVisible)}
@@ -283,7 +228,7 @@ export default function Settings() {
           <div>
             <p className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Privacy &amp; Data</p>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-              Farm data and chat history are stored in PostgreSQL. No personal information is sent to external servers except for AI processing via Groq.
+              All data is stored locally on your device. No personal information is sent to external servers except for AI processing via OpenRouter. Chat history, farm profiles, and preferences are saved in your local SQLite database.
             </p>
           </div>
         </div>

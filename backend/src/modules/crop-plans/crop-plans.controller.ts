@@ -1,7 +1,7 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
 import prisma from '../../services/database'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { optionalAuth, AuthRequest } from '../auth/auth.middleware'
 import redisService from '../../services/cache'
 
 const router = Router()
@@ -34,9 +34,14 @@ const createTaskSchema = z.object({
 // CROP PLANS
 
 // Get all crop plans
-router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { farmId, cropName, dateFrom, dateTo } = req.query
+
+    if (!req.user) {
+      res.json({ plans: [] })
+      return
+    }
 
     const where: any = {
       farm: {
@@ -70,8 +75,13 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 })
 
 // Get single crop plan with tasks
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(404).json({ error: 'Crop plan not found' })
+      return
+    }
+
     const plan = await prisma.cropPlan.findFirst({
       where: {
         id: req.params.id,
@@ -96,7 +106,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 })
 
 // Create crop plan with auto-generated tasks
-router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createCropPlanSchema.parse(req.body)
     const { generateTasks = true } = req.body
@@ -142,7 +152,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 })
 
 // Update crop plan
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/:id', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createCropPlanSchema.partial().parse(req.body)
 
@@ -179,7 +189,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 })
 
 // Delete crop plan
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/:id', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const plan = await prisma.cropPlan.findFirst({
       where: {
@@ -208,8 +218,13 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
 // TASKS
 
 // Get tasks by date range
-router.get('/tasks/by-date', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/tasks/by-date', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.json({ tasks: [] })
+      return
+    }
+
     const { dateFrom, dateTo } = req.query
 
     const tasks = await prisma.task.findMany({
@@ -235,8 +250,13 @@ router.get('/tasks/by-date', authenticate, async (req: AuthRequest, res: Respons
 })
 
 // Get today's tasks
-router.get('/tasks/today', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/tasks/today', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.json({ tasks: [] })
+      return
+    }
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tomorrow = new Date(today)
@@ -261,9 +281,41 @@ router.get('/tasks/today', authenticate, async (req: AuthRequest, res: Response)
   }
 })
 
-// Get tasks for plan
-router.get('/:id/tasks', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Get all pending/incomplete tasks
+router.get('/tasks/pending', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.json({ tasks: [] })
+      return
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        farm: { users: { some: { userId: req.user!.userId, isActive: true } } },
+        status: { not: 'COMPLETED' },
+      },
+      include: {
+        plan: { select: { cropName: true } },
+        farm: { select: { id: true, name: true } },
+      },
+      orderBy: { scheduledDate: 'asc' },
+    })
+
+    res.json({ tasks })
+  } catch (error) {
+    console.error('Error fetching pending tasks:', error)
+    res.status(500).json({ error: 'Failed to fetch tasks' })
+  }
+})
+
+// Get tasks for plan
+router.get('/:id/tasks', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.json({ tasks: [] })
+      return
+    }
+
     const tasks = await prisma.task.findMany({
       where: { planId: req.params.id },
       orderBy: { scheduledDate: 'asc' },
@@ -277,7 +329,7 @@ router.get('/:id/tasks', authenticate, async (req: AuthRequest, res: Response): 
 })
 
 // Create task
-router.post('/tasks', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/tasks', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createTaskSchema.parse(req.body)
 
@@ -309,7 +361,7 @@ router.post('/tasks', authenticate, async (req: AuthRequest, res: Response): Pro
 })
 
 // Update task
-router.put('/tasks/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/tasks/:id', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = createTaskSchema.partial().parse(req.body)
 
@@ -342,7 +394,7 @@ router.put('/tasks/:id', authenticate, async (req: AuthRequest, res: Response): 
 })
 
 // Delete task
-router.delete('/tasks/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/tasks/:id', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.task.delete({ where: { id: req.params.id } })
     res.json({ success: true })
@@ -355,7 +407,7 @@ router.delete('/tasks/:id', authenticate, async (req: AuthRequest, res: Response
 // AUTOSAVE ENDPOINTS
 
 // Save draft (autosave)
-router.post('/autosave', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/autosave', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entityType, entityId, data, isPartial = true } = req.body
 
@@ -391,7 +443,7 @@ router.post('/autosave', authenticate, async (req: AuthRequest, res: Response): 
 })
 
 // Load draft
-router.get('/autosave/:entityType/:entityId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/autosave/:entityType/:entityId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entityType, entityId } = req.params
 
@@ -425,7 +477,7 @@ router.get('/autosave/:entityType/:entityId', authenticate, async (req: AuthRequ
 })
 
 // Clear draft
-router.delete('/autosave/:entityType/:entityId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/autosave/:entityType/:entityId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { entityType, entityId } = req.params
 

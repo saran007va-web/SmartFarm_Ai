@@ -1,7 +1,6 @@
 import { MapPin, Sprout, Trash2, Plus, Pencil, Check, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import EmptyState from '../components/EmptyState'
-import TopBar from '../components/TopBar'
 import { createFarmProfile, deleteFarmProfile, getFarmProfiles, updateFarmProfile } from '../services/api'
 
 const SOIL_TYPES = ['Clay', 'Sandy', 'Loamy', 'Silty', 'Peaty', 'Chalky', 'Black', 'Red']
@@ -155,11 +154,9 @@ export default function Farm() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar title="My Farm" subtitle="Manage your farm profiles and settings" />
-
-      <div className="page-container">
+      <div className="page-container" style={{ paddingTop: '18px' }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="section-title">Farm Profiles</h2>
             <p className="section-subtitle">{profiles.length} saved profile{profiles.length !== 1 ? 's' : ''}</p>

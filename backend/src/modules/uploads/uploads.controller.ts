@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
 import prisma from '../../services/database'
 import storageService from '../../services/storage'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { authenticate, optionalAuth, AuthRequest } from '../auth/auth.middleware'
 import config from '../../config'
 
 const router = Router()
@@ -22,12 +22,20 @@ const upload = multer({
   },
 })
 
-// Get all files for farm
-router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+// Get all files for farm (supports both authenticated and device-based)
+router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { farmId, fileType } = req.query
+    const { farmId, fileType, device_id } = req.query
 
-    const where: any = { userId: req.user!.userId }
+    // Use userId if authenticated, otherwise use device_id
+    const userId = req.user?.userId || device_id as string
+
+    if (!userId) {
+      res.status(400).json({ error: 'User ID or device ID required' })
+      return
+    }
+
+    const where: any = { userId }
     if (farmId) where.farmId = farmId
     if (fileType) where.fileType = fileType
 
@@ -44,19 +52,36 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
   }
 })
 
-// Upload file
-router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
+// Upload file (supports both authenticated and device-based)
+router.post('/upload', optionalAuth, upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('[Upload] Request received, file:', req.file?.originalname)
+
     if (!req.file) {
       res.status(400).json({ error: 'No file provided' })
       return
     }
 
-    const { farmId, fileType = 'DOCUMENT', description, tags } = req.body
+    // Extract device_id from body OR query params
+    const deviceId = req.body?.device_id || req.body?.deviceId || req.query?.device_id as string
+    const farmId = req.body?.farmId || req.body?.farm_id || req.query?.farm_id
+    const fileType = req.body?.fileType || req.body?.file_type || 'DOCUMENT'
+    const description = req.body?.description
+    const tags = req.body?.tags
+
+    // Use userId if authenticated, otherwise use device_id
+    const userId = req.user?.userId || deviceId
+
+    console.log('[Upload] UserID:', userId, 'DeviceID:', deviceId)
+
+    if (!userId) {
+      res.status(400).json({ error: 'User ID or device ID required' })
+      return
+    }
 
     // Validate file type
     if (!storageService.validateFileType(req.file.mimetype)) {
-      res.status(400).json({ error: 'File type not allowed' })
+      res.status(400).json({ error: 'File type not allowed. Allowed: PDF, TXT, MD' })
       return
     }
 
@@ -70,23 +95,40 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
       }
     }
 
-    // Upload to Supabase
-    const result = await storageService.uploadPDF(
-      req.user!.userId,
-      farmId || 'general',
-      req.file.originalname,
-      req.file.buffer
-    )
+    console.log('[Upload] Uploading to Supabase with userId:', userId)
 
-    if (!result.success) {
-      res.status(500).json({ error: result.error })
+    // Upload to Supabase
+    let result
+    try {
+      result = await storageService.uploadPDF(
+        userId,
+        farmId || 'general',
+        req.file.originalname,
+        req.file.buffer
+      )
+    } catch (uploadError: any) {
+      console.error('[Upload] Supabase exception:', uploadError?.message || uploadError)
+      res.status(500).json({ error: 'Storage upload failed: ' + (uploadError?.message || 'Unknown error') })
       return
     }
+
+    if (!result) {
+      res.status(500).json({ error: 'Storage service returned no result' })
+      return
+    }
+
+    if (!result.success) {
+      console.error('[Upload] Supabase error:', result.error)
+      res.status(500).json({ error: result.error || 'Failed to upload to storage' })
+      return
+    }
+
+    console.log('[Upload] Saving to database...')
 
     // Save metadata to database
     const file = await prisma.uploadedFile.create({
       data: {
-        userId: req.user!.userId,
+        userId: userId,
         farmId: farmId || null,
         fileName: req.file.originalname,
         fileType: fileType as any,
@@ -100,9 +142,10 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
       },
     })
 
+    console.log('[Upload] Success:', file.id)
     res.status(201).json({ file })
   } catch (error) {
-    console.error('Error uploading file:', error)
+    console.error('[Upload] Error:', error)
     res.status(500).json({ error: 'Failed to upload file' })
   }
 })

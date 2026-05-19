@@ -5,16 +5,36 @@ import { authenticate, AuthRequest } from '../auth/auth.middleware'
 
 const router = Router()
 
-// Get all market prices (cached)
+// Transform market data to frontend format
+function transformPriceData(prices: any[], filterState?: string, filterDistrict?: string) {
+  return prices.map(p => ({
+    crop: p.cropName || p.crop || 'Unknown',
+    market_type: p.market || p.marketType || 'Wholesale',
+    price_per_kg: p.modalPrice ? p.modalPrice / 10 : (p.pricePerKg || p.price_per_kg || 0),
+    min_price: p.minPrice ? p.minPrice / 10 : 0,
+    max_price: p.maxPrice ? p.maxPrice / 10 : 0,
+    modal_price_raw: p.modalPrice || 0,
+    date: p.arrivalDate || p.date || new Date().toISOString().split('T')[0],
+    state: p.state || '',
+    district: p.district || '',
+    market: p.market || '',
+    variety: p.variety || 'Standard',
+  }))
+}
+
+// Get all market prices with location filtering
 router.get('/prices', async (req, res: Response): Promise<void> => {
   try {
     const crop = req.query.crop as string
     const state = req.query.state as string
-    const limit = parseInt(req.query.limit as string) || 20
+    const district = req.query.district as string
+    const limit = parseInt(req.query.limit as string) || 50
 
     let prices
 
-    if (crop) {
+    if (crop && state) {
+      prices = await marketService.getPricesByCropAndState(crop, state, district, limit)
+    } else if (crop) {
       prices = await marketService.getPricesByCrop(crop, limit)
     } else if (state) {
       prices = await marketService.getPricesByState(state, limit)
@@ -22,9 +42,32 @@ router.get('/prices', async (req, res: Response): Promise<void> => {
       prices = await marketService.getAllPrices()
     }
 
+    // Filter by state/district if provided
+    let filteredPrices = prices
+    if (state) {
+      filteredPrices = prices.filter(p => p.state?.toLowerCase() === state.toLowerCase())
+    }
+    if (district) {
+      filteredPrices = filteredPrices.filter(p => p.district?.toLowerCase() === district.toLowerCase())
+    }
+
+    // Transform to frontend format
+    const transformedPrices = transformPriceData(filteredPrices)
+
+    // Calculate price stats
+    const stats = {
+      avgPrice: transformedPrices.length > 0
+        ? transformedPrices.reduce((s, p) => s + p.price_per_kg, 0) / transformedPrices.length
+        : 0,
+      minPrice: transformedPrices.length > 0 ? Math.min(...transformedPrices.map(p => p.price_per_kg)) : 0,
+      maxPrice: transformedPrices.length > 0 ? Math.max(...transformedPrices.map(p => p.price_per_kg)) : 0,
+    }
+
     res.json({
-      prices,
-      count: prices.length,
+      prices: transformedPrices,
+      count: transformedPrices.length,
+      stats,
+      filters: { crop, state, district },
       source: prices.length > 0 ? 'agmarknet' : 'fallback',
       lastUpdated: new Date().toISOString(),
     })
@@ -34,7 +77,7 @@ router.get('/prices', async (req, res: Response): Promise<void> => {
   }
 })
 
-// Get prices for specific crop
+// Get prices for specific crop (with current and previous comparison)
 router.get('/prices/:crop', async (req, res: Response): Promise<void> => {
   try {
     const crop = req.params.crop
@@ -43,11 +86,38 @@ router.get('/prices/:crop', async (req, res: Response): Promise<void> => {
     const prices = await marketService.getPricesByCrop(crop, limit)
     const trend = await marketService.calculateTrend(crop)
 
+    // Get previous prices for comparison (from 7 days ago)
+    const previousPrices = await marketService.getHistoricalPrices(crop, 14)
+    const now = new Date()
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+
+    const currentPeriodPrices = previousPrices.filter(p => new Date(p.date) >= sevenDaysAgo)
+    const previousPeriodPrices = previousPrices.filter(p => new Date(p.date) >= fourteenDaysAgo && new Date(p.date) < sevenDaysAgo)
+
+    const currentAvg = currentPeriodPrices.length > 0
+      ? currentPeriodPrices.reduce((s, p) => s + p.price, 0) / currentPeriodPrices.length
+      : 0
+    const previousAvg = previousPeriodPrices.length > 0
+      ? previousPeriodPrices.reduce((s, p) => s + p.price, 0) / previousPeriodPrices.length
+      : 0
+
+    const priceChange = previousAvg > 0 ? ((currentAvg - previousAvg) / previousAvg) * 100 : 0
+
+    // Transform to frontend format
+    const transformedPrices = transformPriceData(prices)
+
     res.json({
       cropName: crop,
-      prices,
+      prices: transformedPrices,
       trend,
       count: prices.length,
+      comparison: {
+        current: { avgPrice: currentAvg, period: 'last 7 days', dataPoints: currentPeriodPrices.length },
+        previous: { avgPrice: previousAvg, period: '7-14 days ago', dataPoints: previousPeriodPrices.length },
+        changePercent: Math.round(priceChange * 10) / 10,
+        direction: priceChange > 2 ? 'up' : priceChange < -2 ? 'down' : 'stable',
+      },
       lastUpdated: new Date().toISOString(),
     })
   } catch (error) {
@@ -56,7 +126,7 @@ router.get('/prices/:crop', async (req, res: Response): Promise<void> => {
   }
 })
 
-// Get price history
+// Get price history with statistics
 router.get('/history/:crop', async (req, res: Response): Promise<void> => {
   try {
     const crop = req.params.crop
@@ -67,16 +137,29 @@ router.get('/history/:crop', async (req, res: Response): Promise<void> => {
     // Calculate statistics
     const prices = history.map(h => h.price)
     const stats = {
-      min: Math.min(...prices),
-      max: Math.max(...prices),
-      avg: prices.reduce((a, b) => a + b, 0) / prices.length,
+      min: prices.length > 0 ? Math.min(...prices) : 0,
+      max: prices.length > 0 ? Math.max(...prices) : 0,
+      avg: prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0,
       dataPoints: prices.length,
+    }
+
+    // Get current price for comparison
+    const currentPrices = await marketService.getPricesByCrop(crop, 1)
+    const currentPrice = currentPrices.length > 0 ? currentPrices[0].modalPrice / 10 : 0
+
+    // Calculate price change from history
+    let priceChange = 0
+    if (prices.length >= 2) {
+      priceChange = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100
     }
 
     res.json({
       cropName: crop,
       history,
       statistics: stats,
+      currentPrice,
+      priceChange: Math.round(priceChange * 10) / 10,
+      trend: priceChange > 5 ? 'up' : priceChange < -5 ? 'down' : 'stable',
       period: `${days} days`,
     })
   } catch (error) {

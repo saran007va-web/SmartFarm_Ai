@@ -4,7 +4,6 @@ import {
   MessageSquare, FileSearch, Trash2, User, X, Clock,
 } from 'lucide-react'
 
-import TopBar from '../components/TopBar'
 import { SpeechPipeline, VoiceInputButton, VoiceOutputButton } from '../components/SpeechPipeline'
 import {
   createSession, deleteSession, exportChat,
@@ -173,18 +172,13 @@ export default function Chat() {
       language={uiLanguage}
       onFinalResult={handleVoiceResult}
       onInterimResult={(text) => setInterimText(text)}
-      disabled={false}
+      disabled={loading}
     >
       {({ toggleVoice, isListening: voiceIsListening, isSpeaking: voiceIsSpeaking, speakReply, stopSpeaking }) => {
         speechPipelineRef.current = { speakReply, stopSpeaking }
 
         return (
           <div className="flex-1 flex flex-col" style={{ height: '100vh', overflow: 'hidden' }}>
-            <TopBar
-              title="AI Chat"
-              subtitle={mode === 'rag' ? 'Answering from your uploaded documents' : 'Your farming assistant'}
-            />
-
             {/* Toolbar */}
             <div
               className="flex items-center gap-3 px-6 py-3 flex-wrap"
@@ -200,7 +194,7 @@ export default function Chat() {
               </div>
 
               <div className="flex items-center gap-1 ml-auto">
-                <VoiceInputButton isListening={voiceIsListening} isProcessing={loading} disabled={false} onClick={() => { console.log('Mic button clicked'); toggleVoice(); }} />
+                <VoiceInputButton isListening={voiceIsListening} isProcessing={loading} disabled={loading} onClick={toggleVoice} />
                 <div className="w-px h-6 mx-1" style={{ background: 'var(--color-border)' }} />
                 <button onClick={startNewSession} title="New session" className="btn btn-ghost btn-icon btn-sm"><Plus size={15} /></button>
                 <button onClick={saveCurrentSession} title="Save session" className="btn btn-ghost btn-icon btn-sm"><Save size={15} /></button>
@@ -347,7 +341,7 @@ export default function Chat() {
                   </button>
                 </div>
                 <p className="text-[11px] mt-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                  {voiceIsListening ? 'Listening... will process after 5s of silence' : 'Enter to send · Shift+Enter for new line · tap mic to speak'}
+                  {voiceIsListening ? 'Listening... tap mic to stop' : 'Enter to send · Shift+Enter for new line · tap mic to speak'}
                 </p>
               </div>
             </div>

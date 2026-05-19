@@ -6,18 +6,26 @@ import redisService from '../../services/cache'
 const router = Router()
 
 const profitMarginSchema = z.object({
+  crop: z.string().optional(),
   cropName: z.string().optional(),
   farmId: z.string().optional(),
-  area: z.number().min(0),
+  area: z.number().min(0).optional(),
+  area_ha: z.number().min(0).optional(),
   seedCost: z.number().min(0).optional(),
+  seed_cost: z.number().min(0).optional(),
   fertilizerCost: z.number().min(0).optional(),
+  fertilizer_cost: z.number().min(0).optional(),
   pesticideCost: z.number().min(0).optional(),
+  pesticide_cost: z.number().min(0).optional(),
   laborCost: z.number().min(0).optional(),
+  labor_cost: z.number().min(0).optional(),
   irrigationCost: z.number().min(0).optional(),
   equipmentCost: z.number().min(0).optional(),
   otherCosts: z.number().min(0).optional(),
   expectedYield: z.number().min(0).optional(),
+  expected_yield_kg: z.number().min(0).optional(),
   expectedPrice: z.number().min(0).optional(),
+  price_per_kg: z.number().min(0).optional(),
   season: z.string().optional(),
 })
 
@@ -26,18 +34,21 @@ router.post('/margin', async (req: Request, res: Response) => {
   try {
     const data = profitMarginSchema.parse(req.body)
 
+    // Normalize field names (support both frontend and backend naming conventions)
+    const cropName = data.crop || data.cropName || 'Unknown'
+    const area = data.area || data.area_ha || 1
+    const seedCost = data.seedCost || data.seed_cost || 0
+    const fertilizerCost = data.fertilizerCost || data.fertilizer_cost || 0
+    const pesticideCost = data.pesticideCost || data.pesticide_cost || 0
+    const laborCost = data.laborCost || data.labor_cost || 0
+    const expectedYield = data.expectedYield || data.expected_yield_kg || 0
+    const expectedPrice = data.expectedPrice || data.price_per_kg || 0
+
     // Calculate total costs
-    const totalCosts =
-      (data.seedCost || 0) +
-      (data.fertilizerCost || 0) +
-      (data.pesticideCost || 0) +
-      (data.laborCost || 0) +
-      (data.irrigationCost || 0) +
-      (data.equipmentCost || 0) +
-      (data.otherCosts || 0)
+    const totalCosts = seedCost + fertilizerCost + pesticideCost + laborCost
 
     // Calculate expected revenue
-    const expectedRevenue = (data.expectedYield || 0) * (data.expectedPrice || 0)
+    const expectedRevenue = expectedYield * expectedPrice
 
     // Calculate profit
     const grossProfit = expectedRevenue - totalCosts
@@ -51,23 +62,21 @@ router.post('/margin', async (req: Request, res: Response) => {
     else if (profitMargin < 0) status = 'loss'
 
     // Calculate cost per hectare
-    const costPerHectare = data.area > 0 ? totalCosts / data.area : 0
+    const costPerHectare = area > 0 ? totalCosts / area : 0
 
     // Estimate breakeven yield
-    const breakevenYield = data.expectedPrice && data.expectedPrice > 0
-      ? totalCosts / data.expectedPrice
-      : 0
+    const breakevenYield = expectedPrice > 0 ? totalCosts / expectedPrice : 0
 
     // Get market prices for comparison
     let marketPrice = null
-    if (data.cropName) {
-      const cacheKey = `market:price:${data.cropName}`
+    if (cropName && cropName !== 'Unknown') {
+      const cacheKey = `market:price:${cropName}`
       const cached = await redisService.get(cacheKey)
       if (cached) {
         marketPrice = JSON.parse(cached)
       } else {
         const latestPrice = await prisma.marketPriceHistory.findFirst({
-          where: { cropName: data.cropName },
+          where: { cropName: cropName },
           orderBy: { recordedAt: 'desc' },
         })
         if (latestPrice) {
@@ -78,37 +87,34 @@ router.post('/margin', async (req: Request, res: Response) => {
     }
 
     // Calculate potential revenue with market price
-    const potentialRevenue = marketPrice && data.expectedYield
-      ? marketPrice * data.expectedYield
-      : expectedRevenue
+    const potentialRevenue = marketPrice && expectedYield ? marketPrice * expectedYield : expectedRevenue
 
     const potentialProfit = potentialRevenue - totalCosts
     const potentialMargin = potentialRevenue > 0
       ? (potentialProfit / potentialRevenue) * 100
       : 0
 
+    // Return format expected by frontend
     const result = {
-      totalCosts,
-      expectedRevenue,
-      grossProfit,
-      profitMargin: Math.round(profitMargin * 100) / 100,
+      total_cost: totalCosts,
+      total_revenue: expectedRevenue,
+      gross_profit: grossProfit,
+      profit_margin: Math.round(profitMargin * 100) / 100,
+      profit_margin_pct: Math.round(profitMargin * 100) / 100,
       status,
-      costPerHectare: Math.round(costPerHectare * 100) / 100,
-      breakevenYield: Math.round(breakevenYield * 100) / 100,
-      marketPrice,
-      potentialRevenue: Math.round(potentialRevenue * 100) / 100,
-      potentialProfit: Math.round(potentialProfit * 100) / 100,
-      potentialMargin: Math.round(potentialMargin * 100) / 100,
+      cost_per_hectare: Math.round(costPerHectare * 100) / 100,
+      breakeven_yield: Math.round(breakevenYield * 100) / 100,
+      market_price: marketPrice,
+      potential_revenue: Math.round(potentialRevenue * 100) / 100,
+      potential_profit: Math.round(potentialProfit * 100) / 100,
+      potential_margin: Math.round(potentialMargin * 100) / 100,
       breakdown: {
-        seeds: data.seedCost || 0,
-        fertilizer: data.fertilizerCost || 0,
-        pesticide: data.pesticideCost || 0,
-        labor: data.laborCost || 0,
-        irrigation: data.irrigationCost || 0,
-        equipment: data.equipmentCost || 0,
-        other: data.otherCosts || 0,
+        fertilizer_cost: fertilizerCost,
+        pesticide_cost: pesticideCost,
+        labor_cost: laborCost,
+        seed_cost: seedCost,
       },
-      recommendations: generateRecommendations(status, profitMargin, data.cropName),
+      recommendations: generateRecommendations(status, profitMargin, cropName),
     }
 
     res.json(result)

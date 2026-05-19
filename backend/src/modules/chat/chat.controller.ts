@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import prisma from '../../services/database'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { optionalAuth, AuthRequest } from '../auth/auth.middleware'
+import llmService from '../../services/llm'
 
 const router = Router()
 
@@ -23,7 +24,7 @@ interface ChatMessage {
 }
 
 // Create chat session
-router.post('/sessions', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/sessions', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name } = req.body
     const deviceId = req.body.device_id || req.user?.userId
@@ -42,7 +43,7 @@ router.post('/sessions', authenticate, async (req: AuthRequest, res: Response): 
 })
 
 // Get all chat sessions
-router.get('/sessions', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/sessions', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const deviceId = req.query.device_id as string || req.user?.userId
 
@@ -61,7 +62,7 @@ router.get('/sessions', authenticate, async (req: AuthRequest, res: Response): P
 })
 
 // Delete chat session
-router.delete('/sessions/:sessionId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.delete('/sessions/:sessionId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { sessionId } = req.params
 
@@ -80,7 +81,7 @@ router.delete('/sessions/:sessionId', authenticate, async (req: AuthRequest, res
 })
 
 // Rename chat session
-router.patch('/sessions/:sessionId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.patch('/sessions/:sessionId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { sessionId } = req.params
     const { name } = req.body
@@ -99,7 +100,7 @@ router.patch('/sessions/:sessionId', authenticate, async (req: AuthRequest, res:
 })
 
 // Get chat history
-router.get('/history/:sessionId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/history/:sessionId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { sessionId } = req.params
     const limit = parseInt(req.query.limit as string) || 100
@@ -119,7 +120,7 @@ router.get('/history/:sessionId', authenticate, async (req: AuthRequest, res: Re
 })
 
 // Send chat message
-router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { message, session_id, history, language, device_id } = req.body
 
@@ -140,8 +141,20 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
       VALUES (gen_random_uuid(), ${sessionId}, 'user', ${message}, ${language || 'en'}, NOW())
     `
 
-    // Generate AI response (simple rule-based for now)
-    const aiResponse = generateAIResponse(message, history || [])
+    // Generate AI response using LLM service
+    let aiResponse = ''
+    try {
+      const historyMessages = (history || []).map((h: { role: string; content: string }) => ({
+        role: h.role === 'assistant' ? 'assistant' : 'user',
+        content: h.content,
+      }))
+      const llmResult = await llmService.generateResponse(message, historyMessages, language || 'en')
+      aiResponse = llmResult.content
+    } catch (llmError) {
+      console.error('LLM generation failed, using fallback:', llmError)
+      // Fallback to rule-based response if LLM fails
+      aiResponse = generateAIResponse(message, history || [])
+    }
 
     // Save assistant message
     await prisma.$executeRaw`
@@ -155,6 +168,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
     `
 
     res.json({
+      reply: aiResponse,
       response: aiResponse,
       session_id: sessionId,
     })
@@ -198,7 +212,7 @@ function generateAIResponse(message: string, history: any[]): string {
 }
 
 // Export chat history
-router.get('/export/:sessionId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/export/:sessionId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { sessionId } = req.params
     const format = req.query.format || 'json'

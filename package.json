@@ -4,9 +4,21 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "dev:backend": "docker compose -f agriassist-backend/docker-compose.yml up --build db backend",
+    "dev:backend": "docker compose -f backend/docker-compose.yml up --build db backend",
     "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
     "build": "npm --prefix frontend run build",
+    "build:all": "npm run build:backend && npm run build",
+    "lint:backend": "npm --prefix backend run lint",
+    "lint:frontend": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.0"
   }
 }

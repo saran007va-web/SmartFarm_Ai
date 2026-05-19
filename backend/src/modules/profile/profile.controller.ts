@@ -1,11 +1,11 @@
 import { Router, Response } from 'express'
 import prisma from '../../services/database'
-import { authenticate, AuthRequest } from '../auth/auth.middleware'
+import { optionalAuth, AuthRequest } from '../auth/auth.middleware'
 
 const router = Router()
 
 // Get user profile
-router.get('/:deviceId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:deviceId', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deviceId } = req.params
 
@@ -42,7 +42,7 @@ router.get('/:deviceId', authenticate, async (req: AuthRequest, res: Response): 
 })
 
 // Update user preferences
-router.post('/preferences', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/preferences', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const deviceId = req.body.device_id || req.user?.userId
     const {
@@ -72,7 +72,7 @@ router.post('/preferences', authenticate, async (req: AuthRequest, res: Response
 })
 
 // Get learning stats
-router.get('/:deviceId/stats', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:deviceId/stats', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deviceId } = req.params
 
@@ -91,7 +91,7 @@ router.get('/:deviceId/stats', authenticate, async (req: AuthRequest, res: Respo
 })
 
 // Get personalized context
-router.get('/:deviceId/context', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:deviceId/context', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deviceId } = req.params
 
@@ -113,7 +113,7 @@ router.get('/:deviceId/context', authenticate, async (req: AuthRequest, res: Res
 })
 
 // Add learned context
-router.post('/:deviceId/context', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/:deviceId/context', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deviceId } = req.params
     const { key, value } = req.body
@@ -130,7 +130,7 @@ router.post('/:deviceId/context', authenticate, async (req: AuthRequest, res: Re
 })
 
 // Record crop outcome for learning
-router.post('/crop-outcome', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/crop-outcome', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
       farmId,
@@ -204,7 +204,7 @@ router.post('/crop-outcome', authenticate, async (req: AuthRequest, res: Respons
 })
 
 // Get crop patterns
-router.get('/:deviceId/crop-patterns', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:deviceId/crop-patterns', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { deviceId } = req.params
 

@@ -7,7 +7,6 @@ import {
 } from 'recharts'
 import { Sprout, TrendingUp, BarChart3, RotateCcw, ArrowRight } from 'lucide-react'
 
-import TopBar from '../components/TopBar'
 import { predictCrop, predictYield } from '../services/api'
 
 const DEFAULT_CROP = {
@@ -143,11 +142,6 @@ export default function Recommend() {
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
-      <TopBar
-        title="Crop Advisor"
-        subtitle="AI-powered crop and yield recommendations for your farm"
-      />
-
       {/* Tab Bar */}
       <div
         className="flex items-center gap-4 px-6 py-3 flex-wrap"

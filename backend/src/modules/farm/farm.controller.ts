@@ -8,11 +8,11 @@ const router = Router()
 // Get user's default farm ID (first farm they own or manage)
 async function getDefaultFarmId(userId: string): Promise<string | null> {
   const farmUser = await prisma.farmUser.findFirst({
-    where: { userId, isActive: true },
-    include: { farm: { where: { isActive: true } } },
+    where: { userId, isActive: true, farm: { is: { isActive: true } } },
+    include: { farm: true },
     orderBy: { joinedAt: 'asc' },
   })
-  return farmUser?.farm.id || null
+  return farmUser?.farm?.id || null
 }
 
 // Validation schemas
