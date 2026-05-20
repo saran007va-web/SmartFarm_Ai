@@ -3,11 +3,23 @@ import { useFarmStore, CROP_TYPES, type CropPlot } from './farmStore'
 import {
   Cloud, CloudRain, Sun, Moon, Wind, Droplets, Thermometer,
   Plus, Trash2, Move, Maximize2, MousePointer, Edit3, Save, X,
-  RefreshCw, MapPin, Ruler, Calendar, Leaf, Settings, Play, Pause,
+  RefreshCw, MapPin, Ruler, Calendar, Leaf, Settings,
   Sprout
 } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3002"
+
+function getConditionFromCode(code?: number): string {
+  if (typeof code !== 'number') return 'Clear'
+  if ([0, 1].includes(code)) return 'Clear'
+  if ([2, 3].includes(code)) return 'Cloudy'
+  if ([45, 48].includes(code)) return 'Fog'
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle'
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow'
+  if ([95, 96, 99].includes(code)) return 'Thunderstorm'
+  return 'Clear'
+}
 
 // Weather sync hook
 function useWeatherSync() {
@@ -27,18 +39,20 @@ function useWeatherSync() {
       if (!response.ok) throw new Error('Weather fetch failed')
 
       const data = await response.json()
+      const condition = getConditionFromCode(data.weatherCode)
       setWeather({
         temperature: data.temperature,
         humidity: data.humidity,
-        windSpeed: data.wind_speed || 0,
-        condition: data.weather_description || 'Clear',
-        icon: data.weather_icon || '01d',
-        description: data.weather_description || 'Clear sky',
+        windSpeed: data.windSpeed || 0,
+        condition,
+        icon: condition,
+        description: condition,
         precipitation: data.precipitation || 0,
-        uvIndex: data.uv_index || 0,
+        uvIndex: 0,
         lastUpdated: new Date().toISOString(),
       })
     } catch (err) {
+      setWeatherError('Weather sync unavailable')
       // Fallback demo weather on error
       setWeather({
         temperature: 28 + Math.random() * 5,
@@ -65,21 +79,14 @@ function useWeatherSync() {
 
 // Real-time clock hook
 function useRealTimeClock() {
-  const { setCurrentTime, timeSpeed } = useFarmStore()
+  const { setCurrentTime } = useFarmStore()
 
   useEffect(() => {
-    if (timeSpeed > 1) {
-      const interval = setInterval(() => {
-        setCurrentTime(new Date())
-      }, 1000)
-      return () => clearInterval(interval)
-    }
-
     const interval = setInterval(() => {
       setCurrentTime(new Date())
-    }, 60000 / timeSpeed)
+    }, 60000)
     return () => clearInterval(interval)
-  }, [timeSpeed, setCurrentTime])
+  }, [setCurrentTime])
 }
 
 // Weather display widget
@@ -96,15 +103,16 @@ function WeatherWidget() {
       )
       if (!response.ok) throw new Error('Weather fetch failed')
       const data = await response.json()
+      const condition = getConditionFromCode(data.weatherCode)
       setWeather({
         temperature: data.temperature,
         humidity: data.humidity,
-        windSpeed: data.wind_speed || 0,
-        condition: data.weather_description || 'Clear',
-        icon: data.weather_icon || '01d',
-        description: data.weather_description || 'Clear sky',
+        windSpeed: data.windSpeed || 0,
+        condition,
+        icon: condition,
+        description: condition,
         precipitation: data.precipitation || 0,
-        uvIndex: data.uv_index || 0,
+        uvIndex: 0,
         lastUpdated: new Date().toISOString(),
       })
     } catch (err) {
@@ -275,32 +283,9 @@ function CropEditorPanel() {
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-xs text-gray-400 flex items-center gap-1">
-              <Move size={12} /> X Position
-            </label>
-            <input
-              type="number"
-              value={localChanges.x ?? editingCrop.x}
-              onChange={(e) => handleChange('x', parseFloat(e.target.value))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-              step="0.5"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 flex items-center gap-1">
-              <Move size={12} /> Z Position
-            </label>
-            <input
-              type="number"
-              value={localChanges.z ?? editingCrop.z}
-              onChange={(e) => handleChange('z', parseFloat(e.target.value))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-              step="0.5"
-            />
-          </div>
-        </div>
+        <p className="text-[11px] text-gray-400 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
+          Use the <span className="text-gray-200 font-medium">Move</span> and <span className="text-gray-200 font-medium">Resize</span> tools directly on the plot in the 3D scene.
+        </p>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -368,30 +353,44 @@ function CropEditorPanel() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-xs text-gray-400 flex items-center gap-1">
-              <Calendar size={12} /> Planted Date
-            </label>
-            <input
-              type="date"
-              value={localChanges.plantedDate ?? editingCrop.plantedDate}
-              onChange={(e) => handleChange('plantedDate', e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-400 flex items-center gap-1">
+                <Calendar size={12} /> Planted Date
+              </label>
+              <input
+                type="date"
+                value={localChanges.plantedDate ?? editingCrop.plantedDate}
+                onChange={(e) => handleChange('plantedDate', e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-gray-500">
+                {new Date(localChanges.plantedDate ?? editingCrop.plantedDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 flex items-center gap-1">
+                <Calendar size={12} /> Expected Harvest
+              </label>
+              <input
+                type="date"
+                value={localChanges.expectedHarvest ?? editingCrop.expectedHarvest}
+                onChange={(e) => handleChange('expectedHarvest', e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-gray-500">
+                {new Date(localChanges.expectedHarvest ?? editingCrop.expectedHarvest).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </p>
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-gray-400 flex items-center gap-1">
-              <Calendar size={12} /> Expected Harvest
-            </label>
-            <input
-              type="date"
-              value={localChanges.expectedHarvest ?? editingCrop.expectedHarvest}
-              onChange={(e) => handleChange('expectedHarvest', e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
 
         <div className="flex items-center gap-2">
           <input
@@ -431,67 +430,6 @@ function CropEditorPanel() {
             <Trash2 size={14} />
           </button>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// Time control widget
-function TimeControlWidget() {
-  const { currentTime, isNight, timeSpeed, setCurrentTime, setTimeSpeed } = useFarmStore()
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  return (
-    <div className="bg-gray-900/90 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          {isNight ? <Moon size={16} className="text-indigo-400" /> : <Sun size={16} className="text-yellow-400" />}
-          Time Control
-        </h3>
-      </div>
-
-      <div className="text-center mb-3">
-        <p className="text-2xl font-bold text-white">{formatTime(currentTime)}</p>
-        <p className="text-xs text-gray-400">{formatDate(currentTime)}</p>
-      </div>
-
-      <div className="flex items-center gap-2 mb-3">
-        <button
-          onClick={() => setTimeSpeed(timeSpeed === 1 ? 60 : 1)}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-            timeSpeed > 1 ? 'bg-emerald-600 text-white' : 'bg-gray-700 text-gray-300'
-          }`}
-        >
-          {timeSpeed > 1 ? <Pause size={12} /> : <Play size={12} />}
-          {timeSpeed > 1 ? 'Fast' : 'Normal'}
-        </button>
-        <button
-          onClick={() => setCurrentTime(new Date())}
-          className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-xs text-gray-300 transition-colors"
-        >
-          Now
-        </button>
-      </div>
-
-      <div>
-        <label className="text-xs text-gray-400">Time Speed</label>
-        <select
-          value={timeSpeed}
-          onChange={(e) => setTimeSpeed(parseInt(e.target.value))}
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-        >
-          <option value={1}>1x (Real Time)</option>
-          <option value={60}>60x (1 min = 1 hour)</option>
-          <option value={300}>300x (1 min = 5 hours)</option>
-          <option value={1440}>1440x (1 min = 1 day)</option>
-        </select>
       </div>
     </div>
   )
@@ -620,14 +558,13 @@ export function Farm3DUIControls() {
   const { selectedCrop } = useFarmStore()
 
   return (
-    <div className="absolute top-4 left-4 right-4 pointer-events-none flex gap-4 z-10">
-      <div className="pointer-events-auto space-y-4 w-72">
+    <div className="absolute top-4 left-4 right-4 pointer-events-none flex items-start gap-4 z-10">
+      <div className="pointer-events-auto space-y-4 w-72 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1">
         <FarmStatsWidget />
         <WeatherWidget />
-        <TimeControlWidget />
       </div>
 
-      <div className="pointer-events-auto ml-auto w-72">
+      <div className="pointer-events-auto ml-auto w-72 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 pb-6">
         <ToolSelector />
         {selectedCrop && (
           <div className="mt-4">

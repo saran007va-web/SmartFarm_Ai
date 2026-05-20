@@ -30,8 +30,8 @@ export function useTodayTasks() {
   return useQuery({
     queryKey: QUERY_KEYS.todayTasks,
     queryFn: async () => {
-      const res = await api.get<Task[]>('/api/planning/tasks/today')
-      return res.data
+      const res = await api.get<{ tasks: Task[] }>('/api/planning/tasks/today')
+      return res.data.tasks || []
     },
     staleTime: 1000 * 30,
   })

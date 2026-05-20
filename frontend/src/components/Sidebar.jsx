@@ -4,7 +4,7 @@ import {
   Sprout, BarChart3,
   Settings, MapPin, TrendingUp, Calendar,
   DollarSign, FolderOpen, Radio, ChevronRight, X,
-  Cloud, FileText, Bell, Tractor,
+  Cloud, FileText, Bell, Tractor, Layers3,
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -12,7 +12,8 @@ const NAV_SECTIONS = [
     label: 'Main',
     items: [
       { to: '/farm', label: '3D Farm', icon: Tractor },
-      { to: '/farms', label: 'My Farms', icon: MapPin },
+      { to: '/recommendations', label: 'Crop Recommendations', icon: Sprout },
+      { to: '/plot-details', label: 'Plot Details', icon: Layers3 },
       { to: '/planning', label: 'Crop Planning', icon: Sprout },
     ],
   },
@@ -21,6 +22,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/market', label: 'Market Prices', icon: TrendingUp },
       { to: '/weather', label: 'Weather', icon: Cloud },
+      { to: '/calendar', label: 'Calendar', icon: Calendar },
       { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     ],
   },

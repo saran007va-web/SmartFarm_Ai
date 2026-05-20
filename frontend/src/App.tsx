@@ -12,13 +12,16 @@ import AuthCallback from './pages/auth/AuthCallback'
 import VerifyEmail from './pages/auth/VerifyEmail'
 
 // Main pages
-import Farms from './pages/Farms'
+import Recommendations from './pages/Recommendations'
+import PlotDetails from './pages/PlotDetails'
 import Market from './pages/Market'
 import Weather from './pages/Weather'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
 import PlanningIndex from './pages/planning/PlanningIndex'
 import Files from './pages/Files'
+import CropCalendar from './pages/CropCalendar'
+import FarmCalendar from './pages/FarmCalendar'
 
 // Farm 3D Page
 import FarmPage from './components/farm3d/FarmPage'
@@ -78,12 +81,23 @@ function App() {
             }
           />
 
+          <Route path="/farms" element={<Navigate to="/recommendations" replace />} />
           <Route
-            path="/farms"
+            path="/recommendations"
             element={
               <ProtectedRoute>
-                <ProtectedLayout title="My Farms" subtitle="Manage your farm properties">
-                  <Farms />
+                <ProtectedLayout title="Crop Recommendations" subtitle="Season-aware crop guidance and weather outlook">
+                  <Recommendations />
+                </ProtectedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/plot-details"
+            element={
+              <ProtectedRoute>
+                <ProtectedLayout title="Plot Details" subtitle="Detailed view of your 3D farm plots">
+                  <PlotDetails />
                 </ProtectedLayout>
               </ProtectedRoute>
             }
@@ -134,6 +148,16 @@ function App() {
               <ProtectedRoute>
                 <ProtectedLayout title="Crop Planning" subtitle="Plan and track your farming activities">
                   <PlanningIndex />
+                </ProtectedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <ProtectedLayout title="Crop Calendar" subtitle="Daily tasks and stage guidance">
+                  <FarmCalendar />
                 </ProtectedLayout>
               </ProtectedRoute>
             }

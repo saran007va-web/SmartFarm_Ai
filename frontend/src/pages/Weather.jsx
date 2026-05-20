@@ -29,6 +29,17 @@ function getWeatherIcon(code) {
   return WEATHER_ICONS[code] || Cloud
 }
 
+function getWeatherLabel(code) {
+  if ([0, 1].includes(code)) return 'Clear'
+  if ([2, 3].includes(code)) return 'Cloudy'
+  if ([45, 48].includes(code)) return 'Fog'
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle'
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow'
+  if ([95, 96, 99].includes(code)) return 'Thunderstorm'
+  return 'Clear'
+}
+
 const STATE_LOCATIONS = {
   maharashtra: {
     name: 'Maharashtra',
@@ -144,7 +155,7 @@ const DEFAULT_STATE = 'tamil_nadu'
 const DEFAULT_LOCATION = 'coimbatore'
 
 function buildLocationQuery(location) {
-  return `${location.lat},${location.lon}`
+  return location.name
 }
 
 export default function Weather() {
@@ -257,11 +268,11 @@ export default function Weather() {
                   <div>
                     <p className="text-sm font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{weather.location}</p>
                     <p className="text-5xl font-extrabold" style={{ color: 'var(--color-text)' }}>{weather.temperature}°C</p>
-                    <p className="text-lg mt-1" style={{ color: 'var(--color-text-secondary)' }}>{weather.weather_description}</p>
+                    <p className="text-lg mt-1" style={{ color: 'var(--color-text-secondary)' }}>{getWeatherLabel(weather.weatherCode)}</p>
                   </div>
                   <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.1)' }}>
                     {(() => {
-                      const Icon = getWeatherIcon(weather.weather_code)
+                      const Icon = getWeatherIcon(weather.weatherCode)
                       return <Icon size={48} style={{ color: 'var(--color-primary)' }} strokeWidth={1.5} />
                     })()}
                   </div>
@@ -286,7 +297,7 @@ export default function Weather() {
                   </div>
                   <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Wind Speed</span>
                 </div>
-                <p className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>{weather.wind_speed} km/h</p>
+                <p className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>{weather.windSpeed} km/h</p>
               </div>
             </div>
 
@@ -312,7 +323,7 @@ export default function Weather() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
                 {forecast.map((day, i) => {
-                  const Icon = getWeatherIcon(day.weather_code)
+                  const Icon = getWeatherIcon(day.weatherCode)
                   return (
                     <div
                       key={i}
@@ -327,10 +338,10 @@ export default function Weather() {
                       <div className="flex justify-center mb-2">
                         <Icon size={24} style={{ color: 'var(--color-primary)' }} strokeWidth={1.5} />
                       </div>
-                      <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>{day.temp_max}°</p>
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{day.temp_min}°</p>
-                      {day.precipitation_probability > 0 && (
-                        <p className="text-xs mt-1" style={{ color: '#3b82f6' }}>{day.precipitation_probability}%</p>
+                      <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>{day.tempMax}°</p>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{day.tempMin}°</p>
+                      {day.precipProbability > 0 && (
+                        <p className="text-xs mt-1" style={{ color: '#3b82f6' }}>{day.precipProbability}%</p>
                       )}
                     </div>
                   )

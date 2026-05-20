@@ -34,6 +34,18 @@ interface WeatherLocation {
   country?: string
 }
 
+const weatherCodeToCondition = (code?: number) => {
+  if (typeof code !== 'number') return 'Clear'
+  if ([0, 1].includes(code)) return 'Clear'
+  if ([2, 3].includes(code)) return 'Cloudy'
+  if ([45, 48].includes(code)) return 'Fog'
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle'
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow'
+  if ([95, 96, 99].includes(code)) return 'Thunderstorm'
+  return 'Clear'
+}
+
 const getWeatherIcon = (condition: string) => {
   const c = condition?.toLowerCase() || ''
   if (c.includes('rain') || c.includes('drizzle')) return <CloudRain size={24} />
@@ -63,10 +75,19 @@ export default function Weather() {
   const { data: current, isLoading: currentLoading } = useQuery({
     queryKey: ['weather', 'current', location],
     queryFn: async () => {
-      const res = await api.get<WeatherCurrent>('/api/weather/current', {
+      const res = await api.get('/api/weather/current', {
         params: { location },
       })
-      return res.data
+      const data = res.data
+      return {
+        temperature: data.temperature,
+        feelsLike: data.feelsLike,
+        humidity: data.humidity,
+        windSpeed: data.windSpeed,
+        uvIndex: 0,
+        condition: weatherCodeToCondition(data.weatherCode),
+        location: data.location,
+      } as WeatherCurrent
     },
     enabled: !!location,
   })
@@ -75,10 +96,16 @@ export default function Weather() {
   const { data: forecast, isLoading: forecastLoading } = useQuery({
     queryKey: ['weather', 'forecast', location],
     queryFn: async () => {
-      const res = await api.get<{ forecast: WeatherForecast[] }>('/api/weather/forecast', {
+      const res = await api.get('/api/weather/forecast', {
         params: { location, days: 7 },
       })
-      return res.data.forecast || []
+      return (res.data.forecast || []).map((item: any) => ({
+        date: item.date,
+        minTemp: item.tempMin,
+        maxTemp: item.tempMax,
+        condition: weatherCodeToCondition(item.weatherCode),
+        precipitation: item.precipitation || 0,
+      })) as WeatherForecast[]
     },
     enabled: !!location,
   })
@@ -87,10 +114,15 @@ export default function Weather() {
   const { data: locations } = useQuery({
     queryKey: ['weather', 'locations', locationQuery],
     queryFn: async () => {
-      const res = await api.get<WeatherLocation[]>('/api/weather/locations', {
+      const res = await api.get('/api/weather/locations', {
         params: { q: locationQuery },
       })
-      return res.data || []
+      return (res.data?.locations || []).map((loc: any) => ({
+        name: loc.country ? `${loc.name}, ${loc.country}` : loc.name,
+        lat: loc.latitude,
+        lng: loc.longitude,
+        country: loc.country,
+      })) as WeatherLocation[]
     },
     enabled: locationQuery.length >= 2,
   })

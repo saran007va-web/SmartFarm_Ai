@@ -57,10 +57,16 @@ export interface FarmState {
     [plotId: string]: SensorReading
   }
 
+  // Task completions persisted per plot per date
+  taskCompletions: {
+    [plotId: string]: {
+      [date: string]: string[] // list of completed task ids/texts
+    }
+  }
+
   // Time
   currentTime: Date
   isNight: boolean
-  timeSpeed: number // 1 = real time, 60 = 1 min = 1 hour, etc.
 
   // UI State
   editMode: boolean
@@ -80,12 +86,15 @@ export interface FarmState {
   setWeatherLoading: (loading: boolean) => void
   setWeatherError: (error: string | null) => void
   setCurrentTime: (time: Date) => void
-  setTimeSpeed: (speed: number) => void
   setEditMode: (mode: boolean) => void
   setShowGrid: (show: boolean) => void
   setSelectedTool: (tool: FarmState['selectedTool']) => void
   setWeatherSyncEnabled: (enabled: boolean) => void
   updateSensorReading: (plotId: string, reading: SensorReading) => void
+  markTaskComplete: (plotId: string, date: string, taskId: string) => void
+  unmarkTaskComplete: (plotId: string, date: string, taskId: string) => void
+  isTaskComplete: (plotId: string, date: string, taskId: string) => boolean
+  setTaskCompletions: (data: FarmState['taskCompletions']) => void
   getSelectedCrop: () => CropPlot | null
 }
 
@@ -207,10 +216,10 @@ export const useFarmStore = create<FarmState>()(
       weatherError: null,
 
       sensors: {},
+      taskCompletions: {},
 
       currentTime: new Date(),
       isNight: false,
-      timeSpeed: 1,
 
       editMode: false,
       showGrid: true,
@@ -243,8 +252,6 @@ export const useFarmStore = create<FarmState>()(
         isNight: time.getHours() < 6 || time.getHours() > 20
       }),
 
-      setTimeSpeed: (timeSpeed) => set({ timeSpeed }),
-
       setEditMode: (editMode) => set({ editMode }),
       setShowGrid: (showGrid) => set({ showGrid }),
       setSelectedTool: (selectedTool) => set({ selectedTool }),
@@ -254,6 +261,29 @@ export const useFarmStore = create<FarmState>()(
         sensors: { ...state.sensors, [plotId]: reading }
       })),
 
+      markTaskComplete: (plotId, date, taskId) => set((state) => {
+        const existing = state.taskCompletions || {}
+        const perPlot = existing[plotId] || {}
+        const dayList = new Set(perPlot[date] || [])
+        dayList.add(taskId)
+        return { taskCompletions: { ...existing, [plotId]: { ...perPlot, [date]: Array.from(dayList) } } }
+      }),
+
+      unmarkTaskComplete: (plotId, date, taskId) => set((state) => {
+        const existing = state.taskCompletions || {}
+        const perPlot = existing[plotId] || {}
+        const dayList = new Set(perPlot[date] || [])
+        dayList.delete(taskId)
+        return { taskCompletions: { ...existing, [plotId]: { ...perPlot, [date]: Array.from(dayList) } } }
+      }),
+
+      isTaskComplete: (plotId, date, taskId) => {
+        const state = get()
+        return !!(state.taskCompletions && state.taskCompletions[plotId] && state.taskCompletions[plotId][date] && state.taskCompletions[plotId][date].includes(taskId))
+      },
+
+      setTaskCompletions: (data) => set({ taskCompletions: data || {} }),
+
       getSelectedCrop: () => {
         const state = get()
         return state.crops.find(c => c.id === state.selectedCrop) || null
@@ -261,12 +291,18 @@ export const useFarmStore = create<FarmState>()(
     }),
     {
       name: 'farm-storage',
-      partialize: (state) => ({
+            partialize: (state) => ({
         farmName: state.farmName,
         location: state.location,
         totalArea: state.totalArea,
         crops: state.crops,
+        selectedCrop: state.selectedCrop,
+        editMode: state.editMode,
+        showGrid: state.showGrid,
+        selectedTool: state.selectedTool,
         weatherSyncEnabled: state.weatherSyncEnabled,
+              sensors: state.sensors,
+              taskCompletions: state.taskCompletions,
       }),
     }
   )

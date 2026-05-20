@@ -1,8 +1,11 @@
 import { Router, Response } from 'express'
 import { authenticate, AuthRequest } from '../auth/auth.middleware'
 import prisma from '../../services/database'
+import { Prisma } from '@prisma/client'
 
 const router = Router()
+const TASK_COMPLETION_ENTITY = 'calendar_task_completions'
+const TASK_COMPLETION_KEY = 'default'
 
 // Get calendar events/tasks
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
@@ -51,6 +54,66 @@ router.get('/crops/list', async (req, res: Response): Promise<void> => {
       { id: 'onion', name: 'Onion', sowing_month: 9, harvest_month: 3 },
     ],
   })
+})
+
+// Get user-scoped calendar task completions snapshot
+router.get('/task-completions', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const draft = await prisma.autosaveDraft.findUnique({
+      where: {
+        userId_entityType_entityId: {
+          userId: req.user!.userId,
+          entityType: TASK_COMPLETION_ENTITY,
+          entityId: TASK_COMPLETION_KEY,
+        },
+      },
+    })
+
+    res.json({
+      taskCompletions: (draft?.data as Record<string, unknown>) || {},
+      updatedAt: draft?.updatedAt || null,
+    })
+  } catch (error) {
+    console.error('Get task completions error:', error)
+    res.status(500).json({ error: 'Failed to get task completions' })
+  }
+})
+
+// Save user-scoped calendar task completions snapshot
+router.put('/task-completions', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const payload = req.body?.taskCompletions
+    if (!payload || typeof payload !== 'object') {
+      res.status(400).json({ error: 'taskCompletions object is required' })
+      return
+    }
+
+    const saved = await prisma.autosaveDraft.upsert({
+      where: {
+        userId_entityType_entityId: {
+          userId: req.user!.userId,
+          entityType: TASK_COMPLETION_ENTITY,
+          entityId: TASK_COMPLETION_KEY,
+        },
+      },
+      create: {
+        userId: req.user!.userId,
+        entityType: TASK_COMPLETION_ENTITY,
+        entityId: TASK_COMPLETION_KEY,
+        data: payload as Prisma.InputJsonValue,
+        isPartial: false,
+      },
+      update: {
+        data: payload as Prisma.InputJsonValue,
+        isPartial: false,
+      },
+    })
+
+    res.json({ success: true, updatedAt: saved.updatedAt })
+  } catch (error) {
+    console.error('Save task completions error:', error)
+    res.status(500).json({ error: 'Failed to save task completions' })
+  }
 })
 
 export default router
