@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
 import api from '../lib/api'
 import type { User } from '../types'
 
@@ -20,41 +19,42 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
 
   initialize: () => {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        try {
-          const { data } = await api.post('/api/auth/google/sync', {
-            user: session.user,
-          })
-          if (data.user?.id) {
-            localStorage.setItem('vaagai_user_id', data.user.id)
-          }
-          if (data.token) {
-            localStorage.setItem('vaagai_token', data.token)
-          }
-          set({ user: data.user, token: data.token || null, loading: false })
-        } catch {
-          set({ loading: false })
-        }
-      } else {
-        localStorage.removeItem('vaagai_token')
-        localStorage.removeItem('vaagai_user_id')
-        set({ user: null, token: null, loading: false })
+    // Check for existing token on load
+    const storedToken = localStorage.getItem('vaagai_token')
+    const storedUserId = localStorage.getItem('vaagai_user_id')
+
+    if (storedToken) {
+      // Validate token with backend
+      api.get('/api/auth/me')
+        .then(res => {
+          set({ user: res.data.user, token: storedToken, loading: false })
+        })
+        .catch(() => {
+          localStorage.removeItem('vaagai_token')
+          localStorage.removeItem('vaagai_user_id')
+          set({ user: null, token: null, loading: false })
+        })
+    } else {
+      set({ loading: false })
+    }
+
+    // Listen for messages from OAuth redirect (for Google OAuth)
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        const { user, token } = event.data
+        localStorage.setItem('vaagai_token', token)
+        localStorage.setItem('vaagai_user_id', user.id)
+        set({ user, token, loading: false })
+      } else if (event.data?.type === 'GOOGLE_AUTH_ERROR') {
+        set({ loading: false })
       }
     })
   },
 
   signInWithGoogle: async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
-    })
+    // Redirect to backend Google OAuth endpoint
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+    window.location.href = `${backendUrl}/api/auth/google`
   },
 
   signInWithEmail: async (email, password) => {
@@ -95,7 +95,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signOut: async () => {
-    await supabase.auth.signOut()
+    try {
+      await api.post('/api/auth/logout')
+    } catch {
+      // Ignore logout errors
+    }
     localStorage.removeItem('vaagai_token')
     localStorage.removeItem('vaagai_user_id')
     set({ user: null, token: null })

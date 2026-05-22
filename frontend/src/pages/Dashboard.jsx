@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import {
   MessageSquare, TrendingUp, Upload, Sprout,
-  FileText, ArrowRight, Zap, Shield, BookOpen,
+  FileText, Zap, Shield, BookOpen,
 } from 'lucide-react'
 
 import StatCard from '../components/StatCard'
@@ -22,8 +22,8 @@ const PIE_COLORS = ['#10b981', '#3b82f6', '#a855f7', '#f59e0b']
 const QUICK_ACTIONS = [
   { href: '/chat', label: 'Ask AI', icon: MessageSquare, color: 'green', desc: 'Chat with SmartFarm' },
   { href: '/recommend', label: 'Crop Advisor', icon: Sprout, color: 'blue', desc: 'Get recommendations' },
-  { href: '/analytics', label: 'Upload Doc', icon: Upload, color: 'purple', desc: 'Add to knowledge base' },
-  { href: '/records', label: 'Yield Records', icon: TrendingUp, color: 'amber', desc: 'Track harvests' },
+  { href: '/records', label: 'Yield Records', icon: Upload, color: 'purple', desc: 'Review farm history' },
+  { href: '/market', label: 'Market Prices', icon: TrendingUp, color: 'amber', desc: 'Track market trends' },
 ]
 
 const FEATURES = [
@@ -332,14 +332,6 @@ export default function Dashboard() {
                   {ragStats?.total_documents ?? 0} documents · {ragStats?.total_chunks ?? 0} chunks indexed
                 </p>
               </div>
-              <a
-                href="/analytics"
-                className="flex items-center gap-1 text-xs font-semibold"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                Manage
-                <ArrowRight size={13} />
-              </a>
             </div>
 
             {ragStats?.sources?.length === 0 ? (
@@ -360,7 +352,7 @@ export default function Dashboard() {
                   No documents uploaded yet
                 </p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  Go to Analytics to upload farming guides and PDFs.
+                  Ask AI Chat to query farm knowledge and documents.
                 </p>
               </div>
             ) : (

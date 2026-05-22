@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Sprout, BarChart3,
-  Settings, MapPin, TrendingUp, Calendar,
-  DollarSign, FolderOpen, Radio, ChevronRight, X,
-  Cloud, FileText, Bell, Tractor, Layers3,
+  Settings, TrendingUp, Calendar,
+  ChevronRight, X,
+  Cloud, Bell, Tractor, Layers3,
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -14,7 +14,6 @@ const NAV_SECTIONS = [
       { to: '/farm', label: '3D Farm', icon: Tractor },
       { to: '/recommendations', label: 'Crop Recommendations', icon: Sprout },
       { to: '/plot-details', label: 'Plot Details', icon: Layers3 },
-      { to: '/planning', label: 'Crop Planning', icon: Sprout },
     ],
   },
   {
@@ -23,13 +22,7 @@ const NAV_SECTIONS = [
       { to: '/market', label: 'Market Prices', icon: TrendingUp },
       { to: '/weather', label: 'Weather', icon: Cloud },
       { to: '/calendar', label: 'Calendar', icon: Calendar },
-      { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'Tools',
-    items: [
-      { to: '/files', label: 'Files & Uploads', icon: FileText },
+      
     ],
   },
   {

@@ -55,7 +55,9 @@ export default {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || `http://localhost:3002/api/auth/google/callback`,
+    // Alternative callback for different frontend ports
+    redirectUriAlt: `http://localhost:5174/api/auth/google/callback`,
   },
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5174',
 }

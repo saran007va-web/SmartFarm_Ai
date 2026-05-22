@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Moon, Sun, Bell, Search, ChevronDown, LogOut, Menu, X,
-  Settings, CircleCheckBig, Clock3, Tractor, Sprout, BarChart3, Cloud, FileText,
+  Settings, CircleCheckBig, Clock3, Tractor, Sprout, BarChart3, Cloud,
 } from 'lucide-react'
 import { useCurrentUser } from '../hooks/useAuth'
 import { useTodayTasks } from '../hooks/usePlanning'
@@ -32,12 +32,9 @@ const SITE_ROUTES = [
   { to: '/farm', label: '3D Farm', description: 'View and edit your farm in 3D', icon: Tractor },
   { to: '/recommendations', label: 'Crop Recommendations', description: 'Season-aware crop guidance', icon: Sprout },
   { to: '/plot-details', label: 'Plot Details', description: 'Inspect plots and create new ones', icon: BarChart3 },
-  { to: '/planning', label: 'Crop Planning', description: 'Manage tasks and plans', icon: CircleCheckBig },
   { to: '/calendar', label: 'Calendar', description: 'Daily activities and harvest view', icon: Clock3 },
   { to: '/market', label: 'Market Prices', description: 'Live crop price trends', icon: BarChart3 },
   { to: '/weather', label: 'Weather', description: 'Forecasts and alerts', icon: Cloud },
-  { to: '/analytics', label: 'Analytics', description: 'Plot performance and yields', icon: BarChart3 },
-  { to: '/files', label: 'Files & Uploads', description: 'Documents and reports', icon: FileText },
   { to: '/settings', label: 'Settings', description: 'Profile and preferences', icon: Settings },
 ]
 
@@ -108,7 +105,7 @@ export default function TopBar({ title, subtitle, status = 'connected', actions,
     ;(todayTasks || []).forEach((task) => {
       const haystack = `${task.title} ${task.farmName} ${task.status}`.toLowerCase()
       if (haystack.includes(q)) {
-        results.push({ type: 'task', label: task.title, description: `${task.farmName} · due ${new Date(task.dueDate).toLocaleDateString()}`, icon: CircleCheckBig, action: () => navigate('/planning') })
+        results.push({ type: 'task', label: task.title, description: `${task.farmName} · due ${new Date(task.dueDate).toLocaleDateString()}`, icon: CircleCheckBig, action: () => navigate('/calendar') })
       }
     })
 
@@ -127,7 +124,7 @@ export default function TopBar({ title, subtitle, status = 'connected', actions,
       id: task.id,
       title: task.title,
       message: `${task.farmName} · due ${new Date(task.dueDate).toLocaleDateString()}`,
-      action: () => navigate('/planning'),
+      action: () => navigate('/calendar'),
     }))
   }, [todayTasks, navigate])
 

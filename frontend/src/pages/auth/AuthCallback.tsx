@@ -1,29 +1,43 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          navigate('/farm', { replace: true })
-        } else if (event === 'SIGNED_OUT') {
-          navigate('/login', { replace: true })
-        }
-      }
-    )
+    const token = searchParams.get('token')
+    const userParam = searchParams.get('user')
+    const error = searchParams.get('error')
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate('/farm', { replace: true })
-      }
-    })
+    if (error) {
+      console.error('Auth error:', error)
+      navigate('/login?error=' + error, { replace: true })
+      return
+    }
 
-    return () => subscription.unsubscribe()
-  }, [navigate])
+    if (token && userParam) {
+      try {
+        const user = JSON.parse(decodeURIComponent(userParam))
+        localStorage.setItem('vaagai_token', token)
+        localStorage.setItem('vaagai_user_id', user.id)
+        navigate('/dashboard', { replace: true })
+      } catch (e) {
+        console.error('Failed to parse user data:', e)
+        navigate('/login?error=invalid_data', { replace: true })
+      }
+    } else {
+      // No token in URL - check if we're in the middle of OAuth flow
+      // Try to detect if this is from Supabase redirect
+      const hash = window.location.hash
+      if (hash && hash.includes('access_token')) {
+        // Supabase-style redirect - handle it
+        navigate('/dashboard', { replace: true })
+      } else {
+        navigate('/login', { replace: true })
+      }
+    }
+  }, [navigate, searchParams])
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-primary-light)' }}>

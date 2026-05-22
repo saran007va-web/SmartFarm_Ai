@@ -29,9 +29,8 @@ export default function Register() {
     }
 
     try {
-      const result = await register.mutateAsync({ name, email, password })
-      console.log('Registration success:', result)
-      navigate('/verify-email', { state: { email } })
+      await register.mutateAsync({ name, email, password })
+      navigate('/farm', { replace: true })
     } catch (err: any) {
       console.error('Registration error:', err)
       const errorMsg = err?.response?.data?.error

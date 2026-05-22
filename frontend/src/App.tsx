@@ -9,17 +9,14 @@ import AppLayout from './components/AppLayout'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import AuthCallback from './pages/auth/AuthCallback'
-import VerifyEmail from './pages/auth/VerifyEmail'
 
 // Main pages
 import Recommendations from './pages/Recommendations'
 import PlotDetails from './pages/PlotDetails'
 import Market from './pages/Market'
 import Weather from './pages/Weather'
-import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
-import PlanningIndex from './pages/planning/PlanningIndex'
-import Files from './pages/Files'
+// Planning page removed per user request
 import CropCalendar from './pages/CropCalendar'
 import FarmCalendar from './pages/FarmCalendar'
 
@@ -57,9 +54,9 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/signin" element={<Navigate to="/login" replace />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
 
           {/* Protected routes - 3D Farm is default after login */}
           <Route
@@ -123,16 +120,6 @@ function App() {
             }
           />
           <Route
-            path="/analytics"
-            element={
-              <ProtectedRoute>
-                <ProtectedLayout title="Analytics" subtitle="Explore yield trends and farm performance">
-                  <Analytics />
-                </ProtectedLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/settings"
             element={
               <ProtectedRoute>
@@ -142,16 +129,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/planning"
-            element={
-              <ProtectedRoute>
-                <ProtectedLayout title="Crop Planning" subtitle="Plan and track your farming activities">
-                  <PlanningIndex />
-                </ProtectedLayout>
-              </ProtectedRoute>
-            }
-          />
+          {/* Crop Planning removed */}
           <Route
             path="/calendar"
             element={
@@ -162,17 +140,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/files"
-            element={
-              <ProtectedRoute>
-                <ProtectedLayout title="Files & Uploads" subtitle="Manage your farm documents">
-                  <Files />
-                </ProtectedLayout>
-              </ProtectedRoute>
-            }
-          />
-
           {/* Fallback to 3D farm */}
           <Route path="*" element={<Navigate to="/farm" replace />} />
         </Routes>

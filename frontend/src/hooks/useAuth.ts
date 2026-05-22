@@ -25,7 +25,7 @@ export function useRegister() {
   return useMutation({
     mutationFn: async (data: { name: string; email: string; password: string }) => {
       const nameParts = data.name.split(' ')
-      const res = await api.post<{ message: string; user: any }>('/api/auth/register', {
+      const res = await api.post<AuthResponse>('/api/auth/register', {
         firstName: nameParts[0],
         lastName: nameParts.slice(1).join(' ') || undefined,
         email: data.email,
@@ -33,7 +33,9 @@ export function useRegister() {
       })
       return res.data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      localStorage.setItem('vaagai_token', data.token)
+      localStorage.setItem('vaagai_user_id', data.user.id)
       queryClient.invalidateQueries({ queryKey: ['user'] })
     },
   })
